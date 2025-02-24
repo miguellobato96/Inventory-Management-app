@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/inventory_service.dart';
+import 'add_item_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -38,11 +39,26 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Inventory')),
+      appBar: AppBar(
+        title: const Text('Inventory'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () async {
+              final added = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AddItemScreen()),
+              );
+              if (added == true) {
+                _fetchInventory(); // refresh clearly after adding item
+              }
+            },
+          ),
+        ],
+      ),
       body: Center(
-        // Center content clearly
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600), // Max width here
+          constraints: const BoxConstraints(maxWidth: 600),
           child:
               _isLoading
                   ? const Center(child: CircularProgressIndicator())

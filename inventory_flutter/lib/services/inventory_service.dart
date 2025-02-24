@@ -24,4 +24,25 @@ class InventoryService {
       throw Exception('Failed to load inventory');
     }
   }
+
+  // Add a new item
+  Future<bool> addItem(String name, String category, int quantity) async {
+    final token = await storage.read(key: 'jwt');
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/inventory'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'name': name,
+        'category': category,
+        'quantity': quantity,
+      }),
+    );
+
+    return response.statusCode == 201;
+  }
+
 }
