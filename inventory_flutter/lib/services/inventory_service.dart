@@ -45,4 +45,16 @@ class InventoryService {
     return response.statusCode == 201;
   }
 
+  // Delete item by ID
+  Future<bool> deleteItem(int id) async {
+    final token = await storage.read(key: 'jwt');
+
+    final response = await http.delete(
+      Uri.parse('$baseUrl/inventory/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    return response.statusCode == 204;
+  }
+  
 }

@@ -69,10 +69,83 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     itemBuilder: (context, index) {
                       final item = _items[index];
                       return ListTile(
-                        title: Text(item['name']),
-                        subtitle: Text('Category: ${item['category']}'),
-                        trailing: Text('Qty: ${item['quantity']}'),
+                        title: Text('Name: ${item['name']}'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Category: ${item['category']}'),
+                            Text('Quantity: ${item['quantity']}'),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Edit button (placeholder for future functionality)
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () {
+                                // TODO: Implement edit functionality
+                              },
+                            ),
+                            // Delete button with confirmation dialog
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder:
+                                      (context) => AlertDialog(
+                                        title: const Text('Confirm Delete'),
+                                        content: const Text(
+                                          'Are you sure you want to delete this item?',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed:
+                                                () => Navigator.pop(
+                                                  context,
+                                                  false,
+                                                ),
+                                            child: const Text('No'),
+                                          ),
+                                          TextButton(
+                                            onPressed:
+                                                () => Navigator.pop(
+                                                  context,
+                                                  true,
+                                                ),
+                                            child: const Text('Yes'),
+                                          ),
+                                        ],
+                                      ),
+                                );
+
+                                if (confirm == true) {
+                                  final success = await _inventoryService
+                                      .deleteItem(item['id']);
+                                  if (success) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Item deleted successfully',
+                                        ),
+                                      ),
+                                    );
+                                    _fetchInventory(); // Refresh clearly after deletion
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Failed to delete item'),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                          ],
+                        ),
                       );
+
                     },
                   ),
         ),
