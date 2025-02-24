@@ -56,5 +56,30 @@ class InventoryService {
 
     return response.statusCode == 204;
   }
-  
+
+  // Edit existing item
+  Future<bool> editItem(
+    int id,
+    String name,
+    String category,
+    int quantity,
+  ) async {
+    final token = await storage.read(key: 'jwt');
+
+    final response = await http.put(
+      Uri.parse('$baseUrl/inventory/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'name': name,
+        'category': category,
+        'quantity': quantity,
+      }),
+    );
+
+    return response.statusCode == 200;
+  }
+
 }

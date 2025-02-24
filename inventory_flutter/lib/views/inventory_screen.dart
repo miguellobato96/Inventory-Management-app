@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/inventory_service.dart';
 import 'add_item_screen.dart';
+import 'edit_item_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -83,8 +84,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             // Edit button (placeholder for future functionality)
                             IconButton(
                               icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () {
-                                // TODO: Implement edit functionality
+                              onPressed: () async {
+                                final edited = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => EditItemScreen(item: item),
+                                  ),
+                                );
+                                if (edited == true) {
+                                  _fetchInventory(); // Refresh clearly after editing
+                                }
                               },
                             ),
                             // Delete button with confirmation dialog
