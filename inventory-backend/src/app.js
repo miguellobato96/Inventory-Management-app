@@ -1,4 +1,3 @@
-const db = require('./config/db');
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
@@ -10,21 +9,25 @@ app.use(express.json());
 app.use(cors());
 
 const server = http.createServer(app);
-const io = socketIo(server, { cors: { origin: "*" } });
+const io = socketIo(server, { cors: { origin: '*' } });
 
 io.on('connection', (socket) => {
-  console.log('Client connected');
-  socket.on('disconnect', () => console.log('Client disconnected'));
+  console.log('Client connected:', socket.id);
+  socket.on('disconnect', () => console.log('Client disconnected:', socket.id));
 });
 
 app.get('/', (req, res) => res.send('API Running'));
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
 const authRoutes = require('./routes/auth');
-app.use('/auth', authRoutes);
-
 const inventoryRoutes = require('./routes/inventory');
 
+app.use('/auth', authRoutes);
 app.use('/inventory', inventoryRoutes);
+
+// Make Socket.io accessible in routes
+app.set('socketio', io);
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
