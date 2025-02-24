@@ -1,9 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const verifyToken = require('../middleware/authMiddleware');
+const inventoryController = require('../controllers/inventoryController');
 
-router.get('/', verifyToken, (req, res) => {
-  res.json({ message: 'This inventory route is protected!' });
-});
+// Protected Routes
+router.use(verifyToken);
+
+router.post('/', inventoryController.createItem);
+router.get('/', inventoryController.getItems);
+router.get('/:id', inventoryController.getItemById);
+router.put('/:id', inventoryController.updateItem);
+router.delete('/:id', inventoryController.deleteItem);
 
 module.exports = router;
