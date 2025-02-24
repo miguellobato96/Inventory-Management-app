@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
   final storage = const FlutterSecureStorage();
-  final String baseUrl = 'http://YOUR_IP_ADDRESS:3000';
+  final String baseUrl = 'http://localhost:3000';
 
   Future<bool> login(String email, String password) async {
     final response = await http.post(
