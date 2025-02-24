@@ -24,3 +24,7 @@ server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 const authRoutes = require('./routes/auth');
 app.use('/auth', authRoutes);
+
+const inventoryRoutes = require('./routes/inventory');
+
+app.use('/inventory', inventoryRoutes);
