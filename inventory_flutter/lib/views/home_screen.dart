@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'inventory_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -7,10 +8,15 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Home')),
-      body: const Center(
-        child: Text(
-          'Welcome to Inventory App!',
-          style: TextStyle(fontSize: 20),
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const InventoryScreen()),
+            );
+          },
+          child: const Text('Go to Inventory'),
         ),
       ),
     );
