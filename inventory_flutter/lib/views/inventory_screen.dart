@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/inventory_service.dart';
 import '../services/socket_service.dart';
+import '../services/api_service.dart';
 import 'add_item_screen.dart';
 import 'edit_item_screen.dart';
 
@@ -14,17 +15,21 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen> {
   final InventoryService _inventoryService = InventoryService();
   final SocketService _socketService = SocketService();
+  final ApiService _apiService = ApiService();
+
   List<dynamic> _items = [];
   List<dynamic> _filteredItems = [];
   bool _isLoading = true;
   String _errorMessage = '';
   String _searchQuery = '';
   String? _selectedCategory;
+  String _userRole = 'user'; // Default role
 
   @override
   void initState() {
     super.initState();
     _fetchInventory();
+    _getUserRole();
 
     // Connect to Socket.io
     _socketService.connect();
@@ -42,6 +47,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
           duration: const Duration(seconds: 3),
         ),
       );
+    });
+  }
+
+  Future<void> _getUserRole() async {
+    final role = await _apiService.getUserRole();
+    setState(() {
+      _userRole = role ?? 'user';
     });
   }
 
@@ -88,20 +100,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Inventory'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              final added = await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AddItemScreen()),
-              );
-              if (added == true) {
-                _fetchInventory();
-              }
-            },
-          ),
-        ],
+        actions:
+            _userRole == 'admin'
+                ? [
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () async {
+                      final added = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AddItemScreen(),
+                        ),
+                      );
+                      if (added == true) {
+                        _fetchInventory();
+                      }
+                    },
+                  ),
+                ]
+                : [],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -182,100 +199,115 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                   ),
                                 ],
                               ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (item['quantity'] < 5)
-                                    const Icon(
-                                      Icons.warning,
-                                      color: Colors.red,
-                                    ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.edit,
-                                      color: Colors.blue,
-                                    ),
-                                    onPressed: () async {
-                                      final edited = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder:
-                                              (context) =>
-                                                  EditItemScreen(item: item),
-                                        ),
-                                      );
-                                      if (edited == true) {
-                                        _fetchInventory();
-                                      }
-                                    },
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () async {
-                                      final confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder:
-                                            (context) => AlertDialog(
-                                              title: const Text(
-                                                'Confirm Delete',
-                                              ),
-                                              content: const Text(
-                                                'Are you sure you want to delete this item?',
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed:
-                                                      () => Navigator.pop(
-                                                        context,
-                                                        false,
-                                                      ),
-                                                  child: const Text('No'),
-                                                ),
-                                                TextButton(
-                                                  onPressed:
-                                                      () => Navigator.pop(
-                                                        context,
-                                                        true,
-                                                      ),
-                                                  child: const Text('Yes'),
-                                                ),
-                                              ],
+                              trailing:
+                                  _userRole == 'admin'
+                                      ? Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (item['quantity'] < 5)
+                                            const Icon(
+                                              Icons.warning,
+                                              color: Colors.red,
                                             ),
-                                      );
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.edit,
+                                              color: Colors.blue,
+                                            ),
+                                            onPressed: () async {
+                                              final edited =
+                                                  await Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder:
+                                                          (context) =>
+                                                              EditItemScreen(
+                                                                item: item,
+                                                              ),
+                                                    ),
+                                                  );
+                                              if (edited == true) {
+                                                _fetchInventory();
+                                              }
+                                            },
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.delete,
+                                              color: Colors.red,
+                                            ),
+                                            onPressed: () async {
+                                              final confirm = await showDialog<
+                                                bool
+                                              >(
+                                                context: context,
+                                                builder:
+                                                    (context) => AlertDialog(
+                                                      title: const Text(
+                                                        'Confirm Delete',
+                                                      ),
+                                                      content: const Text(
+                                                        'Are you sure you want to delete this item?',
+                                                      ),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed:
+                                                              () =>
+                                                                  Navigator.pop(
+                                                                    context,
+                                                                    false,
+                                                                  ),
+                                                          child: const Text(
+                                                            'No',
+                                                          ),
+                                                        ),
+                                                        TextButton(
+                                                          onPressed:
+                                                              () =>
+                                                                  Navigator.pop(
+                                                                    context,
+                                                                    true,
+                                                                  ),
+                                                          child: const Text(
+                                                            'Yes',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                              );
 
-                                      if (confirm == true) {
-                                        final success = await _inventoryService
-                                            .deleteItem(item['id']);
-                                        if (success) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Item deleted successfully',
-                                              ),
-                                            ),
-                                          );
-                                          _fetchInventory();
-                                        } else {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Failed to delete item',
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
+                                              if (confirm == true) {
+                                                final success =
+                                                    await _inventoryService
+                                                        .deleteItem(item['id']);
+                                                if (success) {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'Item deleted successfully',
+                                                      ),
+                                                    ),
+                                                  );
+                                                  _fetchInventory();
+                                                } else {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'Failed to delete item',
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                              }
+                                            },
+                                          ),
+                                        ],
+                                      )
+                                      : null,
                             );
                           },
                         ),

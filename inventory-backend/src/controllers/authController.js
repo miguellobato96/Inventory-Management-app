@@ -1,17 +1,19 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
+require('dotenv').config();
 
 exports.register = async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, password, email, role } = req.body; // Accept role in request
   const hashedPassword = await bcrypt.hash(password, 10);
 
   try {
     const newUser = await db.query(
-      'INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING id, username, email',
-      [username, email, hashedPassword]
+      'INSERT INTO users (username, password, email, role) VALUES ($1, $2, $3, $4) RETURNING id, username, email, role',
+      [username, hashedPassword, email, role || 'user'] // Default role is "user"
     );
-    res.status(201).json(newUser.rows[0]);
+
+    res.status(201).json(newUser.rows[0]); // Return user data with role
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -22,18 +24,25 @@ exports.login = async (req, res) => {
 
   try {
     const user = await db.query('SELECT * FROM users WHERE email = $1', [email]);
-    if (user.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
+
+    if (user.rows.length === 0) {
+      return res.status(401).json({ message: 'Invalid credentials' }); // User not found
+    }
 
     const validPassword = await bcrypt.compare(password, user.rows[0].password);
-    if (!validPassword) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Invalid credentials' }); // Incorrect password
+    }
 
+    // Generate JWT with role
     const token = jwt.sign(
-      { userId: user.rows[0].id, role: user.rows[0].role },
+      { id: user.rows[0].id, username: user.rows[0].username, role: user.rows[0].role },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '1h' }
     );
 
-    res.json({ token });
+    res.json({ token, role: user.rows[0].role });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

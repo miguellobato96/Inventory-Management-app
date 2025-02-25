@@ -1,15 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const verifyToken = require('../middleware/authMiddleware');
+const { verifyToken, requireAdmin } = require('../middleware/authMiddleware');
 const inventoryController = require('../controllers/inventoryController');
 
-// Protected Routes
+// All users must be authenticated
 router.use(verifyToken);
 
-router.post('/', inventoryController.createItem);
+// Routes for all users
 router.get('/', inventoryController.getItems);
 router.get('/:id', inventoryController.getItemById);
-router.put('/:id', inventoryController.updateItem);
-router.delete('/:id', inventoryController.deleteItem);
+
+// Routes only accessible to Admins
+router.post('/', requireAdmin, inventoryController.createItem);
+router.put('/:id', requireAdmin, inventoryController.updateItem);
+router.delete('/:id', requireAdmin, inventoryController.deleteItem);
 
 module.exports = router;

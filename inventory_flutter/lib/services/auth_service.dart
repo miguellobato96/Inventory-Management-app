@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-class ApiService {
+class AuthService {
   final String baseUrl = 'http://localhost:3000/auth';
   final storage = const FlutterSecureStorage();
 
@@ -29,7 +29,6 @@ class ApiService {
     await storage.delete(key: 'user_role');
   }
 
-  /// 🔹 **Add this missing method**
   Future<String?> getUserRole() async {
     return await storage.read(key: 'user_role');
   }

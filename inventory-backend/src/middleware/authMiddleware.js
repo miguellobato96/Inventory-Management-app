@@ -13,9 +13,17 @@ const verifyToken = (req, res, next) => {
       return res.status(403).json({ message: 'Unauthorized: Invalid token' });
     }
 
-    req.user = decoded;  // Save decoded data to req.user
+    req.user = decoded; // Attach user info (including role)
     next();
   });
 };
 
-module.exports = verifyToken;
+// Restrict access to Admins only
+const requireAdmin = (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+};
+
+module.exports = { verifyToken, requireAdmin };
