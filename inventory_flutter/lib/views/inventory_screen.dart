@@ -15,8 +15,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
   final InventoryService _inventoryService = InventoryService();
   final SocketService _socketService = SocketService();
   List<dynamic> _items = [];
+  List<dynamic> _filteredItems = [];
   bool _isLoading = true;
   String _errorMessage = '';
+  String _searchQuery = '';
+  String? _selectedCategory;
 
   @override
   void initState() {
@@ -26,7 +29,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     // Connect to Socket.io
     _socketService.connect();
     _socketService.listenForInventoryUpdates(() {
-      _fetchInventory(); // Refresh inventory list on updates
+      _fetchInventory();
     });
 
     // Listen for low-stock warnings
@@ -47,6 +50,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       List<dynamic> items = await _inventoryService.getInventoryItems();
       setState(() {
         _items = items;
+        _applyFilters(); // Apply filters after fetching data
         _isLoading = false;
       });
     } catch (e) {
@@ -55,6 +59,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _applyFilters() {
+    setState(() {
+      _filteredItems =
+          _items.where((item) {
+            final matchesSearch = item['name'].toLowerCase().contains(
+              _searchQuery.toLowerCase(),
+            );
+            final matchesCategory =
+                _selectedCategory == null ||
+                _selectedCategory == 'All' ||
+                item['category'] == _selectedCategory;
+            return matchesSearch && matchesCategory;
+          }).toList();
+    });
   }
 
   @override
@@ -77,7 +97,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 MaterialPageRoute(builder: (context) => const AddItemScreen()),
               );
               if (added == true) {
-                _fetchInventory(); // Refresh after adding item
+                _fetchInventory();
               }
             },
           ),
@@ -86,120 +106,190 @@ class _InventoryScreenState extends State<InventoryScreen> {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
-          child:
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _errorMessage.isNotEmpty
-                  ? Center(child: Text(_errorMessage))
-                  : ListView.builder(
-                    itemCount: _items.length,
-                    itemBuilder: (context, index) {
-                      final item = _items[index];
-                      return ListTile(
-                        title: Text('Name: ${item['name']}'),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Category: ${item['category']}'),
-                            Text(
-                              'Quantity: ${item['quantity']}',
-                              style: TextStyle(
-                                color:
-                                    (item['quantity'] < 5)
-                                        ? Colors.red
-                                        : Colors.black,
-                                fontWeight:
-                                    (item['quantity'] < 5)
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                              ),
-                            ),
-                          ],
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (item['quantity'] < 5)
-                              const Icon(
-                                Icons.warning,
-                                color: Colors.red,
-                              ), // Low-stock warning icon
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () async {
-                                final edited = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => EditItemScreen(item: item),
-                                  ),
-                                );
-                                if (edited == true) {
-                                  _fetchInventory(); // Refresh after editing
-                                }
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder:
-                                      (context) => AlertDialog(
-                                        title: const Text('Confirm Delete'),
-                                        content: const Text(
-                                          'Are you sure you want to delete this item?',
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed:
-                                                () => Navigator.pop(
-                                                  context,
-                                                  false,
-                                                ),
-                                            child: const Text('No'),
-                                          ),
-                                          TextButton(
-                                            onPressed:
-                                                () => Navigator.pop(
-                                                  context,
-                                                  true,
-                                                ),
-                                            child: const Text('Yes'),
-                                          ),
-                                        ],
-                                      ),
-                                );
-
-                                if (confirm == true) {
-                                  final success = await _inventoryService
-                                      .deleteItem(item['id']);
-                                  if (success) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Item deleted successfully',
-                                        ),
-                                      ),
-                                    );
-                                    _fetchInventory(); // Refresh inventory
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Failed to delete item'),
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: TextField(
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                      _applyFilters();
+                    });
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Search Items',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: DropdownButtonFormField<String>(
+                  value: _selectedCategory,
+                  decoration: InputDecoration(
+                    labelText: 'Filter by Category',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  items:
+                      _getCategories().map((category) {
+                        return DropdownMenuItem(
+                          value: category,
+                          child: Text(category),
+                        );
+                      }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedCategory = value;
+                      _applyFilters();
+                    });
+                  },
+                ),
+              ),
+              Expanded(
+                child:
+                    _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _errorMessage.isNotEmpty
+                        ? Center(child: Text(_errorMessage))
+                        : ListView.builder(
+                          itemCount: _filteredItems.length,
+                          itemBuilder: (context, index) {
+                            final item = _filteredItems[index];
+                            return ListTile(
+                              title: Text('Name: ${item['name']}'),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Category: ${item['category']}'),
+                                  Text(
+                                    'Quantity: ${item['quantity']}',
+                                    style: TextStyle(
+                                      color:
+                                          (item['quantity'] < 5)
+                                              ? Colors.red
+                                              : Colors.black,
+                                      fontWeight:
+                                          (item['quantity'] < 5)
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (item['quantity'] < 5)
+                                    const Icon(
+                                      Icons.warning,
+                                      color: Colors.red,
+                                    ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      color: Colors.blue,
+                                    ),
+                                    onPressed: () async {
+                                      final edited = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) =>
+                                                  EditItemScreen(item: item),
+                                        ),
+                                      );
+                                      if (edited == true) {
+                                        _fetchInventory();
+                                      }
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: () async {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder:
+                                            (context) => AlertDialog(
+                                              title: const Text(
+                                                'Confirm Delete',
+                                              ),
+                                              content: const Text(
+                                                'Are you sure you want to delete this item?',
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed:
+                                                      () => Navigator.pop(
+                                                        context,
+                                                        false,
+                                                      ),
+                                                  child: const Text('No'),
+                                                ),
+                                                TextButton(
+                                                  onPressed:
+                                                      () => Navigator.pop(
+                                                        context,
+                                                        true,
+                                                      ),
+                                                  child: const Text('Yes'),
+                                                ),
+                                              ],
+                                            ),
+                                      );
+
+                                      if (confirm == true) {
+                                        final success = await _inventoryService
+                                            .deleteItem(item['id']);
+                                        if (success) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Item deleted successfully',
+                                              ),
+                                            ),
+                                          );
+                                          _fetchInventory();
+                                        } else {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Failed to delete item',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  List<String> _getCategories() {
+    Set<String> categories =
+        _items.map((item) => item['category'] as String).toSet();
+    return ['All', ...categories];
   }
 }
