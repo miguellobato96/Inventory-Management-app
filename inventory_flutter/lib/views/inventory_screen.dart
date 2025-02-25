@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/inventory_service.dart';
+import '../services/socket_service.dart';
 import 'add_item_screen.dart';
 import 'edit_item_screen.dart';
 
@@ -12,6 +13,7 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   final InventoryService _inventoryService = InventoryService();
+  final SocketService _socketService = SocketService();
   List<dynamic> _items = [];
   bool _isLoading = true;
   String _errorMessage = '';
@@ -20,6 +22,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
   void initState() {
     super.initState();
     _fetchInventory();
+
+    // Connect to Socket.io
+    _socketService.connect();
+    _socketService.listenForInventoryUpdates(() {
+      _fetchInventory(); // Refresh inventory list on updates
+    });
   }
 
   void _fetchInventory() async {
@@ -38,6 +46,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   @override
+  void dispose() {
+    _socketService.disconnect(); // Disconnect when leaving screen
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -51,7 +65,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 MaterialPageRoute(builder: (context) => const AddItemScreen()),
               );
               if (added == true) {
-                _fetchInventory(); // refresh clearly after adding item
+                _fetchInventory(); // Refresh after adding item
               }
             },
           ),
@@ -81,7 +95,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Edit button (placeholder for future functionality)
                             IconButton(
                               icon: const Icon(Icons.edit, color: Colors.blue),
                               onPressed: () async {
@@ -93,11 +106,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                   ),
                                 );
                                 if (edited == true) {
-                                  _fetchInventory(); // Refresh clearly after editing
+                                  _fetchInventory(); // Refresh after editing
                                 }
                               },
                             ),
-                            // Delete button with confirmation dialog
                             IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () async {
@@ -141,7 +153,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         ),
                                       ),
                                     );
-                                    _fetchInventory(); // Refresh clearly after deletion
+                                    _fetchInventory(); // Refresh inventory
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
@@ -155,7 +167,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           ],
                         ),
                       );
-
                     },
                   ),
         ),
