@@ -30,4 +30,12 @@ class SocketService {
   void disconnect() {
     socket!.disconnect();
   }
+
+  void listenForLowStockWarnings(Function(Map<String, dynamic>) onLowStock) {
+    socket!.on('low-stock-warning', (data) {
+      print('Low-stock warning received: $data');
+      onLowStock(data);
+    });
+  }
+
 }

@@ -43,14 +43,23 @@ exports.updateItem = async (req, res) => {
   const io = req.app.get('socketio');
   const { id } = req.params;
   const { name, category, quantity } = req.body;
+  
   try {
     const updated = await db.query(
       'UPDATE inventory SET name=$1, category=$2, quantity=$3, updated_at=CURRENT_TIMESTAMP WHERE id=$4 RETURNING *',
       [name, category, quantity, id]
     );
-    
-    io.emit('inventory-updated'); // Emit clearly after updating
-    res.json(updated.rows[0]);
+
+    const updatedItem = updated.rows[0];
+
+    io.emit('inventory-updated'); // Notify all clients to refresh inventory
+
+    // Check if stock is low and emit a low-stock event
+    if (updatedItem.quantity < 5) {
+      io.emit('low-stock-warning', updatedItem);
+    }
+
+    res.json(updatedItem);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

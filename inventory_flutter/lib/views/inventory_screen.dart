@@ -28,6 +28,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
     _socketService.listenForInventoryUpdates(() {
       _fetchInventory(); // Refresh inventory list on updates
     });
+
+    // Listen for low-stock warnings
+    _socketService.listenForLowStockWarnings((lowStockItem) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '⚠️ Low stock: ${lowStockItem['name']} (Only ${lowStockItem['quantity']} left)',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    });
   }
 
   void _fetchInventory() async {
@@ -89,12 +101,29 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Category: ${item['category']}'),
-                            Text('Quantity: ${item['quantity']}'),
+                            Text(
+                              'Quantity: ${item['quantity']}',
+                              style: TextStyle(
+                                color:
+                                    (item['quantity'] < 5)
+                                        ? Colors.red
+                                        : Colors.black,
+                                fontWeight:
+                                    (item['quantity'] < 5)
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                              ),
+                            ),
                           ],
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (item['quantity'] < 5)
+                              const Icon(
+                                Icons.warning,
+                                color: Colors.red,
+                              ), // Low-stock warning icon
                             IconButton(
                               icon: const Icon(Icons.edit, color: Colors.blue),
                               onPressed: () async {
