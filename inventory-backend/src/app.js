@@ -20,9 +20,14 @@ app.get('/', (req, res) => res.send('API Running'));
 
 const authRoutes = require('./routes/auth');
 const inventoryRoutes = require('./routes/inventory');
+const categoryRoutes = require('./routes/category');
+const locationRoutes = require('./routes/location');
 
 app.use('/auth', authRoutes);
 app.use('/inventory', inventoryRoutes);
+app.use('/categories', categoryRoutes);
+app.use('/locations', locationRoutes);
+
 
 // Make Socket.io accessible in routes
 app.set('socketio', io);

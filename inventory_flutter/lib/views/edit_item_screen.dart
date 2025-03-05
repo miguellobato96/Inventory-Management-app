@@ -16,6 +16,9 @@ class _EditItemScreenState extends State<EditItemScreen> {
   final InventoryService _inventoryService = InventoryService();
   bool _isLoading = false;
 
+  int? _selectedCategory;
+  int? _selectedLocation;
+
   @override
   void initState() {
     super.initState();
@@ -27,24 +30,25 @@ class _EditItemScreenState extends State<EditItemScreen> {
   void _editItem() async {
     setState(() => _isLoading = true);
 
-    final success = await _inventoryService.editItem(
-      widget.item['id'],
+    final success = await _inventoryService.updateItem(
+      widget.item['id'], // ✅ Pass item ID
       _nameController.text.trim(),
-      _categoryController.text.trim(),
+      _selectedCategory!, // ✅ Use category ID
       int.parse(_quantityController.text.trim()),
+      _selectedLocation!, // ✅ Use location ID
     );
 
     setState(() => _isLoading = false);
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Item updated successfully')),
+        const SnackBar(content: Text('✅ Item updated successfully')),
       );
       Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Failed to update item')));
+      ).showSnackBar(const SnackBar(content: Text('❌ Failed to update item')));
     }
   }
 
