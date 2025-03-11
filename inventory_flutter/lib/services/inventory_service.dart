@@ -157,23 +157,27 @@ class InventoryService {
   }
 
   // Adjust item quantity by adding or taking stock
-  Future<bool> adjustItemQuantity(int itemId, int quantityChange) async {
-    final token = await storage.read(key: 'jwt');
+  Future<Map<String, dynamic>?> adjustItemQuantity(
+    int itemId,
+    int quantityChange,
+  ) async {
+    final token = await storage.read(key: 'jwt'); // Retrieve stored token
 
     final response = await http.post(
       Uri.parse('$baseUrl/inventory/adjust-quantity'),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
+        'Authorization': 'Bearer $token', // Ensure token is sent
       },
       body: jsonEncode({'itemId': itemId, 'quantityChange': quantityChange}),
     );
 
     if (response.statusCode == 200) {
-      return true; // ✅ Successfully updated
+      final data = jsonDecode(response.body);
+      return data['item']; // ✅ Return updated item including location
     } else {
       print('Error adjusting item quantity: ${response.body}');
-      return false; // ❌ Error
+      return null;
     }
   }
 }

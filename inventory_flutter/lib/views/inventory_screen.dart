@@ -172,17 +172,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return _items.where((item) => item['category_id'] == categoryId).toList();
   }
 
-  // Adjusts the quantity of an item
+  // Adjusts the quantity of an item and shows location output
   void _modifyQuantity(int itemId, int quantityChange) async {
-    bool success = await _inventoryService.adjustItemQuantity(
-      itemId,
-      quantityChange,
-    );
+    Map<String, dynamic>? updatedItem = await _inventoryService
+        .adjustItemQuantity(itemId, quantityChange);
 
-    if (success) {
-      _fetchInventory();
+    if (updatedItem != null) {
+      _fetchInventory(); // Refresh inventory to show updated quantity
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Item quantity updated successfully!')),
+        SnackBar(
+          content: Text(
+            'Item quantity updated successfully!\nLocation: ${updatedItem['location_name']}',
+          ),
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

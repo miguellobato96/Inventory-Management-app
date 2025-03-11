@@ -136,8 +136,14 @@ exports.adjustItemQuantity = async (req, res) => {
             return res.status(400).json({ error: 'Invalid input data' });
         }
 
-        // Fetch item from database
-        const itemQuery = await pool.query('SELECT * FROM inventory WHERE id = $1', [itemId]);
+        // Fetch item and join with location name
+        const itemQuery = await pool.query(`
+            SELECT inventory.*, COALESCE(locations.name, 'Unknown Location') AS location_name
+            FROM inventory
+            LEFT JOIN locations ON inventory.location_id = locations.id
+            WHERE inventory.id = $1
+        `, [itemId]);
+
         if (itemQuery.rows.length === 0) {
             return res.status(404).json({ error: 'Item not found' });
         }
@@ -161,8 +167,11 @@ exports.adjustItemQuantity = async (req, res) => {
         io.emit('inventory-updated'); // Notify clients
 
         return res.status(200).json({ 
-            message: `Quantity updated successfully. New quantity: ${item.quantity}`, 
-            item: updatedItem.rows[0] 
+            message: `Quantity updated successfully. New quantity: ${item.quantity}`,
+            item: {
+                ...updatedItem.rows[0],
+                location_name: item.location_name // Include location in response
+            }
         });
 
     } catch (error) {
