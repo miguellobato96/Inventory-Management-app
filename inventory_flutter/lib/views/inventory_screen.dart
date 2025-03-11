@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/inventory_service.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
-import 'add_item_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -168,12 +167,100 @@ class _InventoryScreenState extends State<InventoryScreen> {
     };
   }
 
-  /// 🏷️ **Returns the list of items within a specific category.**
+  // Returns the list of items within a specific category
   List<dynamic> _getItemsForCategory(int categoryId) {
     return _items.where((item) => item['category_id'] == categoryId).toList();
   }
 
-  /// Returns the full category path for an item (e.g., "Electronics > Resistors > 10K Ω")
+  // Adjusts the quantity of an item
+  void _modifyQuantity(int itemId, int quantityChange) async {
+    bool success = await _inventoryService.adjustItemQuantity(
+      itemId,
+      quantityChange,
+    );
+
+    if (success) {
+      _fetchInventory();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Item quantity updated successfully!')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to update item quantity!')),
+      );
+    }
+  }
+
+  // Shows a dialog to add or take quantity for an item
+  void _showQuantityDialog(
+    BuildContext context,
+    String action,
+    int itemId,
+    String itemName,
+  ) {
+    TextEditingController quantityController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(itemName),
+          content: TextField(
+            controller: quantityController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: "Enter quantity",
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                int? quantity = int.tryParse(quantityController.text);
+
+                // Prevent invalid input
+                if (quantity == null || quantity <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Quantity should be greater than zero."),
+                    ),
+                  );
+                  return;
+                }
+
+                // Simulate API request to check if stock would go negative
+                int currentQuantity =
+                    _items.firstWhere(
+                      (item) => item['id'] == itemId,
+                    )['quantity'];
+                if (action == "remove" && currentQuantity - quantity < 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Not enough stock!",
+                      ),
+                    ),
+                  );
+                  return; // ❌ Keep dialog open
+                }
+
+                // Close dialog and update quantity
+                Navigator.pop(context);
+                _modifyQuantity(itemId, action == "add" ? quantity : -quantity);
+              },
+              child: Text(action == "add" ? "Add" : "Take"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Returns the full category path for an item
   String _getCategoryHierarchy(int? categoryId) {
     if (categoryId == null || categoryId == 0) return 'No Category';
 
@@ -200,13 +287,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
       hierarchy.insert(0, category['name']);
       currentCategoryId =
-          category['parent_id']; // ✅ Correctly moves up the hierarchy
+          category['parent_id'];
     }
 
     return hierarchy.isNotEmpty ? hierarchy.join(' > ') : 'No Category';
   }
 
-  /// Recursively builds categories, subcategories, and items with correct expansion.
+  // Builds category, subcategory, or item tile
   Widget _buildCategoryTile(Map<String, dynamic> entry) {
     final int entryId = entry['id'];
     final String entryName = entry['name'];
@@ -214,7 +301,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final List<dynamic> subcategories = entry['subcategories'] ?? [];
     final List<dynamic> items = entry['items'] ?? [];
 
-    // ✅ Fix: Ensure Items Display Full Category Path
+    // Item
     if (entryType == 'item') {
       return ListTile(
         title: Text(
@@ -227,10 +314,35 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ? "Category: ${entry['category_name']} | Quantity: ${entry['quantity']}"
               : "Quantity: ${entry['quantity']}",
         ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.remove, color: Colors.red),
+              onPressed:
+                  () => _showQuantityDialog(
+                    context,
+                    "remove",
+                    entry['id'],
+                    entry['name'],
+                  ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add, color: Colors.green),
+              onPressed:
+                  () => _showQuantityDialog(
+                    context,
+                    "add",
+                    entry['id'],
+                    entry['name'],
+                  ),
+            ),
+          ],
+        ),
       );
     }
 
-    // Ensure Categories & Subcategories Expand Properly
+    // Category or Subcategory
     return ExpansionTile(
       key: ValueKey(entryId),
       title: Text(
@@ -241,7 +353,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       onExpansionChanged: (expanded) {
         setState(() {
           if (expanded) {
-            _expandedCategories.add(entryId);
+            _expandedCategories.add(entryId); // Track expanded categories
           } else {
             _expandedCategories.remove(entryId);
           }
@@ -255,12 +367,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
         if (items.isNotEmpty)
           ...items.map(
-            (item) => ListTile(
-              title: Text(item['name']),
-              subtitle: Text(
-                "Quantity: ${item['quantity']} | ${_getCategoryHierarchy(item['category_id'])}",
-              ),
-            ),
+            (item) => _buildCategoryTile({
+              'id': item['id'],
+              'name': item['name'],
+              'category_name': _getCategoryHierarchy(item['category_id']),
+              'quantity': item['quantity'],
+              'type': 'item',
+            }),
           ),
       ],
     );

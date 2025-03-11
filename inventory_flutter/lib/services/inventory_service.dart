@@ -155,4 +155,25 @@ class InventoryService {
 
     return response.statusCode == 200;
   }
+
+  // Adjust item quantity by adding or taking stock
+  Future<bool> adjustItemQuantity(int itemId, int quantityChange) async {
+    final token = await storage.read(key: 'jwt');
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/inventory/adjust-quantity'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'itemId': itemId, 'quantityChange': quantityChange}),
+    );
+
+    if (response.statusCode == 200) {
+      return true; // ✅ Successfully updated
+    } else {
+      print('Error adjusting item quantity: ${response.body}');
+      return false; // ❌ Error
+    }
+  }
 }

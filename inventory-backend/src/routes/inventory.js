@@ -9,6 +9,8 @@ router.use(verifyToken);
 // Routes for all users
 router.get('/', inventoryController.getItems);
 router.get('/:id', inventoryController.getItemById);
+router.post('/adjust-quantity', inventoryController.adjustItemQuantity);
+
 
 // Routes only accessible to Admins
 router.post('/', requireAdmin, inventoryController.createItem);

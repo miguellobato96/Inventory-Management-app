@@ -124,3 +124,49 @@ exports.deleteItem = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// Adjust item quantity (for users and admins)
+exports.adjustItemQuantity = async (req, res) => {
+    const io = req.app.get('socketio');
+    const { itemId, quantityChange } = req.body;
+
+    try {
+        // Validate input
+        if (!itemId || typeof quantityChange !== 'number' || quantityChange === 0) {
+            return res.status(400).json({ error: 'Invalid input data' });
+        }
+
+        // Fetch item from database
+        const itemQuery = await pool.query('SELECT * FROM inventory WHERE id = $1', [itemId]);
+        if (itemQuery.rows.length === 0) {
+            return res.status(404).json({ error: 'Item not found' });
+        }
+
+        let item = itemQuery.rows[0];
+
+        // Prevent negative quantity
+        if (item.quantity + quantityChange < 0) {
+            return res.status(400).json({ error: 'Quantity cannot go below zero' });
+        }
+
+        // Adjust quantity
+        item.quantity += quantityChange;
+
+        // Update database
+        const updatedItem = await pool.query(
+            'UPDATE inventory SET quantity=$1, updated_at=CURRENT_TIMESTAMP WHERE id=$2 RETURNING *',
+            [item.quantity, itemId]
+        );
+
+        io.emit('inventory-updated'); // Notify clients
+
+        return res.status(200).json({ 
+            message: `Quantity updated successfully. New quantity: ${item.quantity}`, 
+            item: updatedItem.rows[0] 
+        });
+
+    } catch (error) {
+        console.error('❌ Error adjusting quantity:', error);
+        res.status(500).json({ error: 'Server error adjusting quantity' });
+    }
+};
