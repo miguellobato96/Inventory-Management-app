@@ -16,10 +16,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
   final SocketService _socketService = SocketService();
   final ApiService _apiService = ApiService();
 
-  List<dynamic> _items = []; // Full inventory list
-  List<dynamic> _categories = []; // Main categories
-  Map<int, List<dynamic>> _subcategories =
-      {}; // Subcategories mapped by category ID
+  final ScrollController _scrollController = ScrollController();
+  List<dynamic> _items = [];
+  List<dynamic> _categories = [];
+  final Map<int, List<dynamic>> _subcategories = {};
+  final Set<int> _expandedCategories = {};
+  String _searchQuery = '';
+
   bool _isLoading = true;
   String _errorMessage = '';
   String _userRole = 'user';
@@ -31,14 +34,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
     _fetchCategories();
     _getUserRole();
 
-    // Establish WebSocket connection to listen for inventory updates
     _socketService.connect();
     _socketService.listenForInventoryUpdates(() {
       _fetchInventory();
     });
   }
 
-  /// Fetches the user's role (admin/user) from API
   Future<void> _getUserRole() async {
     final role = await _apiService.getUserRole();
     setState(() {
@@ -46,7 +47,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     });
   }
 
-  /// Fetches the full inventory list
   void _fetchInventory() async {
     try {
       List<dynamic> items = await _inventoryService.getInventoryItems();
@@ -62,7 +62,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  /// Fetches main categories and their respective subcategories
   void _fetchCategories() async {
     try {
       List<dynamic> categories = await _inventoryService.getMainCategories();
@@ -70,7 +69,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
         _categories = categories;
       });
 
-      // Fetch subcategories for each main category
       for (var category in categories) {
         _fetchSubcategories(category['id']);
       }
@@ -79,68 +77,191 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  /// Fetches subcategories for a given category, including nested subcategories
   void _fetchSubcategories(int categoryId) async {
     try {
-      print("Fetching subcategories for category ID: $categoryId");
-
       List<dynamic> subcategories = await _inventoryService.getSubcategories(
         categoryId,
       );
       if (subcategories.isEmpty) return;
 
       setState(() {
+        for (var subcategory in subcategories) {
+          subcategory['parent_id'] =
+              categoryId; // ✅ Store parent ID for hierarchy tracking
+        }
         _subcategories[categoryId] = subcategories;
       });
 
-      print(
-        "✅ Subcategories for category ID $categoryId: ${_subcategories[categoryId]}",
-      );
-
-      // Ensure each subcategory fetches its own subcategories recursively
       for (var subcategory in subcategories) {
         if (!_subcategories.containsKey(subcategory['id'])) {
           _fetchSubcategories(subcategory['id']);
         }
       }
     } catch (e) {
-      print('❌ Error fetching subcategories for category ID $categoryId: $e');
+      print('Error fetching subcategories for category ID $categoryId: $e');
     }
   }
 
-  /// Returns only the direct items belonging to a specific category
+  // Filters inventory based on search input
+  List<Map<String, dynamic>> _filterInventoryBySearch() {
+    if (_searchQuery.isEmpty) {
+      _expandedCategories.clear();
+      return _categories
+          .map((category) => _buildCategoryHierarchy(category))
+          .toList();
+    }
+
+    List<Map<String, dynamic>> filteredResults = [];
+
+    // Search Categories
+    for (var category in _categories) {
+      if (category['name'].toLowerCase().contains(_searchQuery.toLowerCase())) {
+        filteredResults.add(_buildCategoryHierarchy(category));
+      }
+    }
+
+    // Search Subcategories
+    for (var entry in _subcategories.entries) {
+      for (var sub in entry.value) {
+        if (sub['name'].toLowerCase().contains(_searchQuery.toLowerCase())) {
+          filteredResults.add(_buildCategoryHierarchy(sub));
+        }
+      }
+    }
+
+    // Search Items and Ensure Full Category Path
+    for (var item in _items) {
+      if (item['name'].toLowerCase().contains(_searchQuery.toLowerCase())) {
+        String categoryPath = _getCategoryHierarchy(
+          item['category_id'],
+        ); // ✅ Ensures full path
+
+        filteredResults.add({
+          'id': item['id'],
+          'name': item['name'],
+          'category_name': categoryPath, // ✅ Correct Full Path!
+          'quantity': item['quantity'],
+          'type': 'item',
+        });
+      }
+    }
+
+    return filteredResults;
+  }
+
+  // Builds the category hierarchy including subcategories and items
+  Map<String, dynamic> _buildCategoryHierarchy(Map<String, dynamic> category) {
+    int categoryId = category['id'];
+    String categoryPath = _getCategoryHierarchy(categoryId);
+
+    return {
+      'id': categoryId,
+      'name': category['name'],
+      'category_name': categoryPath,
+      'subcategories':
+          _subcategories[categoryId]
+              ?.map((sub) => _buildCategoryHierarchy(sub))
+              .toList() ??
+          [],
+      'items': _getItemsForCategory(categoryId),
+      'type': 'category',
+    };
+  }
+
+  /// 🏷️ **Returns the list of items within a specific category.**
   List<dynamic> _getItemsForCategory(int categoryId) {
     return _items.where((item) => item['category_id'] == categoryId).toList();
   }
 
-  /// Builds UI for categories and subcategories recursively
-  Widget _buildCategoryTile(Map<String, dynamic> category) {
-    final int categoryId = category['id'];
-    final List<dynamic> subcategories = _subcategories[categoryId] ?? [];
-    final List<dynamic> items = _getItemsForCategory(categoryId);
+  /// Returns the full category path for an item (e.g., "Electronics > Resistors > 10K Ω")
+  String _getCategoryHierarchy(int? categoryId) {
+    if (categoryId == null || categoryId == 0) return 'No Category';
 
+    List<String> hierarchy = [];
+    int? currentCategoryId = categoryId;
+
+    while (currentCategoryId != null && currentCategoryId != 0) {
+      var category = _categories.firstWhere(
+        (cat) => cat['id'] == currentCategoryId,
+        orElse: () {
+          // ✅ Check in _subcategories if not found in _categories
+          for (var entry in _subcategories.entries) {
+            for (var sub in entry.value) {
+              if (sub['id'] == currentCategoryId) {
+                return sub;
+              }
+            }
+          }
+          return {'id': 0, 'name': 'Unknown', 'parent_id': 0};
+        },
+      );
+
+      if (category['id'] == 0 || category['name'] == 'Unknown') break;
+
+      hierarchy.insert(0, category['name']);
+      currentCategoryId =
+          category['parent_id']; // ✅ Correctly moves up the hierarchy
+    }
+
+    return hierarchy.isNotEmpty ? hierarchy.join(' > ') : 'No Category';
+  }
+
+  /// Recursively builds categories, subcategories, and items with correct expansion.
+  Widget _buildCategoryTile(Map<String, dynamic> entry) {
+    final int entryId = entry['id'];
+    final String entryName = entry['name'];
+    final String entryType = entry['type'] ?? 'category';
+    final List<dynamic> subcategories = entry['subcategories'] ?? [];
+    final List<dynamic> items = entry['items'] ?? [];
+
+    // ✅ Fix: Ensure Items Display Full Category Path
+    if (entryType == 'item') {
+      return ListTile(
+        title: Text(
+          entryName,
+          style: const TextStyle(fontWeight: FontWeight.normal),
+        ),
+        subtitle: Text(
+          entry.containsKey('category_name') &&
+                  entry['category_name'].isNotEmpty
+              ? "Category: ${entry['category_name']} | Quantity: ${entry['quantity']}"
+              : "Quantity: ${entry['quantity']}",
+        ),
+      );
+    }
+
+    // Ensure Categories & Subcategories Expand Properly
     return ExpansionTile(
-      key: ValueKey(categoryId),
+      key: ValueKey(entryId),
       title: Text(
-        category['name'],
+        entryName,
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
+      initiallyExpanded: _expandedCategories.contains(entryId),
+      onExpansionChanged: (expanded) {
+        setState(() {
+          if (expanded) {
+            _expandedCategories.add(entryId);
+          } else {
+            _expandedCategories.remove(entryId);
+          }
+        });
+      },
       children: [
-        // Show nested subcategories recursively
-        ...subcategories.map((sub) {
-          return _buildCategoryTile(sub);
-        }),
+        if (subcategories.isNotEmpty)
+          ...subcategories.map((sub) => _buildCategoryTile(sub)),
 
-        // Show actual items under each category/subcategory
-        if (items.isNotEmpty) ...[
-          const Divider(),
+        if (items.isNotEmpty) const Divider(),
+
+        if (items.isNotEmpty)
           ...items.map(
             (item) => ListTile(
               title: Text(item['name']),
-              subtitle: Text("Quantity: ${item['quantity']}"),
+              subtitle: Text(
+                "Quantity: ${item['quantity']} | ${_getCategoryHierarchy(item['category_id'])}",
+              ),
             ),
           ),
-        ],
       ],
     );
   }
@@ -148,47 +269,54 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   void dispose() {
     _socketService.disconnect();
+    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final displayCategories = _filterInventoryBySearch();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Inventory'),
-        actions:
-            _userRole == 'admin'
-                ? [
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: () async {
-                      final added = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AddItemScreen(),
-                        ),
-                      );
-                      if (added == true) {
-                        _fetchInventory();
-                      }
-                    },
-                  ),
-                ]
-                : [],
+        title: SizedBox(
+          height: 40, // Adjust height to match icon size
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Search inventory...',
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 10,
+              ), // Align text properly
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8), // Slight rounding
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: Colors.white.withOpacity(
+                0.2,
+              ), // Maintain theme consistency
+              prefixIcon: const Icon(Icons.search),
+            ),
+            onChanged: (query) {
+              if (mounted) {
+                setState(() {
+                  _searchQuery = query;
+                });
+              }
+            },
+          ),
+        ),
       ),
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _errorMessage.isNotEmpty
               ? Center(child: Text(_errorMessage))
-              : Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: ListView(
-                  children:
-                      _categories
-                          .map((category) => _buildCategoryTile(category))
-                          .toList(),
-                ),
+              : ListView(
+                children:
+                    displayCategories
+                        .map((category) => _buildCategoryTile(category))
+                        .toList(),
               ),
     );
   }
