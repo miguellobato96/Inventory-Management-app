@@ -8,11 +8,11 @@ router.use(verifyToken);
 
 // Routes for all users
 router.get('/', inventoryController.getItems);
-router.get('/:id', inventoryController.getItemById);
+router.get('/:id([0-9]+)', inventoryController.getItemById);
 router.post('/adjust-quantity', inventoryController.adjustItemQuantity);
 
-
 // Routes only accessible to Admins
+router.get('/history', requireAdmin, inventoryController.getInventoryHistory);
 router.post('/', requireAdmin, inventoryController.createItem);
 router.put('/:id', requireAdmin, inventoryController.updateItem);
 router.delete('/:id', requireAdmin, inventoryController.deleteItem);

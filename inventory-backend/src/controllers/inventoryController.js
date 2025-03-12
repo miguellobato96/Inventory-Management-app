@@ -125,10 +125,11 @@ exports.deleteItem = async (req, res) => {
   }
 };
 
-// Adjust item quantity (for users and admins)
+// Adjust item quantity (for users and admins) & Log History
 exports.adjustItemQuantity = async (req, res) => {
     const io = req.app.get('socketio');
     const { itemId, quantityChange } = req.body;
+    const userId = req.user.id; // Get user ID from auth middleware
 
     try {
         // Validate input
@@ -136,7 +137,7 @@ exports.adjustItemQuantity = async (req, res) => {
             return res.status(400).json({ error: 'Invalid input data' });
         }
 
-        // Fetch item and join with location name
+        // Fetch item with location
         const itemQuery = await pool.query(`
             SELECT inventory.*, COALESCE(locations.name, 'Unknown Location') AS location_name
             FROM inventory
@@ -155,27 +156,60 @@ exports.adjustItemQuantity = async (req, res) => {
             return res.status(400).json({ error: 'Quantity cannot go below zero' });
         }
 
-        // Adjust quantity
-        item.quantity += quantityChange;
+        // Store previous & new quantity
+        const previousQuantity = item.quantity;
+        const newQuantity = previousQuantity + quantityChange;
 
         // Update database
         const updatedItem = await pool.query(
             'UPDATE inventory SET quantity=$1, updated_at=CURRENT_TIMESTAMP WHERE id=$2 RETURNING *',
-            [item.quantity, itemId]
+            [newQuantity, itemId]
         );
 
-        io.emit('inventory-updated'); // Notify clients
+        // Insert changes into history
+        await pool.query(`
+            INSERT INTO inventory_history (item_id, user_id, quantity_before, quantity_change, quantity_after)
+            VALUES ($1, $2, $3, $4, $5)
+        `, [itemId, userId, previousQuantity, quantityChange, newQuantity]);
+
+        // Notify clients
+        io.emit('inventory-updated');
 
         return res.status(200).json({ 
-            message: `Quantity updated successfully. New quantity: ${item.quantity}`,
+            message: `Quantity updated successfully. New quantity: ${newQuantity}`,
             item: {
                 ...updatedItem.rows[0],
-                location_name: item.location_name // Include location in response
+                location_name: item.location_name // ✅ Include location in response
             }
         });
 
     } catch (error) {
         console.error('❌ Error adjusting quantity:', error);
         res.status(500).json({ error: 'Server error adjusting quantity' });
+    }
+};
+
+// Fetch inventory change history
+exports.getInventoryHistory = async (req, res) => {
+    try {
+        const history = await pool.query(`
+            SELECT ih.id, 
+                   ih.item_id, 
+                   i.name AS item_name, 
+                   u.username,
+                   ih.quantity_before, 
+                   ih.quantity_change, 
+                   ih.quantity_after, 
+                   TO_CHAR(ih.changed_at, 'DD/MM/YYYY HH24:MI') AS changed_at
+            FROM inventory_history ih
+            JOIN inventory i ON ih.item_id = i.id
+            JOIN users u ON ih.user_id = u.id
+            ORDER BY ih.changed_at DESC;
+        `);
+
+        res.status(200).json(history.rows);
+    } catch (error) {
+        console.error('❌ Error fetching inventory history:', error);
+        res.status(500).json({ error: 'Server error fetching history' });
     }
 };
