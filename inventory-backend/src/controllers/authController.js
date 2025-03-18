@@ -34,16 +34,29 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' }); // Incorrect password
     }
 
-    // Generate JWT with role
+    // Generate JWT with user data
     const token = jwt.sign(
-      { id: user.rows[0].id, username: user.rows[0].username, role: user.rows[0].role },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+    { id: user.rows[0].id, username: user.rows[0].username, email: user.rows[0].email, role: user.rows[0].role },
+    process.env.JWT_SECRET,
+    { expiresIn: '1h' }
+);
 
     res.json({ token, role: user.rows[0].role });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+};
+
+exports.getUserEmail = async (req, res) => {
+    try {
+        if (!req.user || !req.user.email) {
+            return res.status(401).json({ error: "Unauthorized: Email missing in token" });
+        }
+
+        res.json({ email: req.user.email });
+    } catch (err) {
+        console.error("Error retrieving user email:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
 };

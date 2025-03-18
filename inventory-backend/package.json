@@ -12,9 +12,13 @@
   "dependencies": {
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
+    "csv-writer": "^1.6.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^6.10.0",
+    "pdfkit": "^0.16.0",
     "pg": "^8.13.3",
     "socket.io": "^4.8.1"
   }

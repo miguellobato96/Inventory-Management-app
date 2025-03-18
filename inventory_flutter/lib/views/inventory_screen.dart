@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/inventory_service.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
+import 'export_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -395,33 +396,53 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: SizedBox(
-          height: 40, // Adjust height to match icon size
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: 'Search inventory...',
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 10,
-              ), // Align text properly
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8), // Slight rounding
-                borderSide: BorderSide.none,
+        title: Expanded(
+          child: SizedBox(
+            height: 40, // Adjust height to match icon size
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search inventory...',
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                ), // Align text properly
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8), // Slight rounding
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: Colors.white.withOpacity(
+                  0.2,
+                ), // Maintain theme consistency
+                prefixIcon: const Icon(Icons.search),
               ),
-              filled: true,
-              fillColor: Colors.white.withOpacity(
-                0.2,
-              ), // Maintain theme consistency
-              prefixIcon: const Icon(Icons.search),
+              onChanged: (query) {
+                if (mounted) {
+                  setState(() {
+                    _searchQuery = query;
+                  });
+                }
+              },
             ),
-            onChanged: (query) {
-              if (mounted) {
-                setState(() {
-                  _searchQuery = query;
-                });
-              }
-            },
           ),
         ),
+        actions: [
+          SizedBox(
+            width: 16, // Matches left-side spacing of return button
+          ),
+          IconButton(
+            icon: Icon(Icons.file_download), // Export icon
+            tooltip: "Export Inventory",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ExportScreen()),
+              );
+            },
+          ),
+          SizedBox(
+            width: 16, // Maintain spacing on the right side
+          ),
+        ],
       ),
       body:
           _isLoading

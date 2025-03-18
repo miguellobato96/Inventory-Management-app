@@ -13,7 +13,12 @@ const verifyToken = (req, res, next) => {
       return res.status(403).json({ message: 'Unauthorized: Invalid token' });
     }
 
-    req.user = decoded; // Attach user info (including role)
+    // Add user data to request object
+    req.user = {
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role
+    };
     next();
   });
 };

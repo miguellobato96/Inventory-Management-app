@@ -213,3 +213,105 @@ exports.getInventoryHistory = async (req, res) => {
         res.status(500).json({ error: 'Server error fetching history' });
     }
 };
+
+const exportService = require("../services/exportService");
+const emailService = require("../services/emailService");
+
+// Export Inventory
+exports.exportInventory = async (req, res) => {
+    const { format, email, category_id, sort_by, order } = req.body;
+
+    try {
+        console.log("📥 Received Export Request:", req.body); // Debugging Input
+
+        // Validate input
+        if (!email || !format || !["csv", "pdf", "both"].includes(format)) {
+            return res.status(400).json({ error: "Invalid input. Please specify email and format (csv, pdf, both)." });
+        }
+
+        // Query inventory data
+        let query = `
+            SELECT inventory.id, inventory.name, 
+                   CASE 
+                       WHEN categories.parent_id IS NULL THEN categories.name 
+                       ELSE parent_categories.name 
+                   END AS category,
+                   CASE 
+                       WHEN categories.parent_id IS NOT NULL THEN categories.name 
+                       ELSE 'No Subcategory' 
+                   END AS subcategory,
+                   inventory.quantity, 
+                   COALESCE(locations.name, 'Unknown') AS location_name
+            FROM inventory
+            LEFT JOIN categories ON inventory.category_id = categories.id
+            LEFT JOIN categories parent_categories ON categories.parent_id = parent_categories.id
+            LEFT JOIN locations ON inventory.location_id = locations.id
+        `;
+
+        const params = [];
+
+        // Filter by category_id
+        if (category_id) {
+            query += ` WHERE inventory.category_id = $1`;
+            params.push(category_id);
+        }
+
+        // Sort results
+        if (sort_by) {
+            query += ` ORDER BY ${sort_by} ${order === "desc" ? "DESC" : "ASC"}`;
+        }
+
+        console.log("📤 Running SQL Query:\n", query); // Debugging SQL Query
+
+        const result = await pool.query(query, params);
+        console.log("✅ Query Result:", result.rows.length, "records found"); // Debugging Output
+
+        // Check if records found
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "No inventory records found." });
+        }
+
+        // Generate and send email with attachments
+        let attachments = [];
+        if (format === "csv" || format === "both") {
+            const csvPath = await exportService.generateCSV(result.rows);
+            attachments.push(csvPath);
+        }
+        if (format === "pdf" || format === "both") {
+            const pdfPath = await exportService.generatePDF(result.rows);
+            attachments.push(pdfPath);
+        }
+
+        // Send email with attachments
+        await emailService.sendEmailWithAttachments(email, attachments);
+
+        console.log("📧 Export Successful. Email sent to:", email);
+        res.status(200).json({ message: "Export successful. Check your email for the files." });
+
+    } catch (err) {
+        console.error("❌ Error exporting inventory:", err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// Get User Email
+exports.getUserEmail = async (req, res) => {
+    try {
+        console.log("Fetching user email for ID:", req.user.id);
+
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ error: "Unauthorized: Missing user ID" });
+        }
+
+        const user = await db.query("SELECT email FROM users WHERE id = $1", [req.user.id]);
+
+        if (user.rows.length === 0) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        res.json({ email: user.rows[0].email });
+    } catch (err) {
+        console.error("Error fetching user email:", err);
+        res.status(500).json({ error: "Database query failed" });
+    }
+};
