@@ -55,14 +55,19 @@ exports.getItems = async (req, res) => {
                 inventory.name, 
                 inventory.category_id,  
                 COALESCE(categories.name, 'Sem Categoria') AS category, 
-                inventory.quantity, 
+                inventory.quantity,
+                inventory.low_stock_threshold, 
+                CASE 
+                    WHEN inventory.quantity <= inventory.low_stock_threshold THEN true 
+                    ELSE false 
+                END AS is_low_stock, 
                 inventory.location_id, 
                 COALESCE(locations.name, 'Não Atribuído') AS location_name
             FROM inventory
             LEFT JOIN locations ON inventory.location_id = locations.id
             LEFT JOIN categories ON inventory.category_id = categories.id
             WHERE inventory.category_id IN (SELECT id FROM category_tree) 
-               OR inventory.category_id IS NULL -- ✅ Inclui também itens sem categoria
+               OR inventory.category_id IS NULL
             ORDER BY inventory.name ASC;
         `);
 
@@ -219,17 +224,15 @@ const emailService = require("../services/emailService");
 
 // Export Inventory
 exports.exportInventory = async (req, res) => {
-    const { format, email, category_id, sort_by, order } = req.body;
+    const { format, email, category_id, sort_by, order, low_stock_only } = req.body;
 
     try {
-        console.log("📥 Received Export Request:", req.body); // Debugging Input
+        console.log("📥 Received Export Request:", req.body);
 
-        // Validate input
         if (!email || !format || !["csv", "pdf", "both"].includes(format)) {
             return res.status(400).json({ error: "Invalid input. Please specify email and format (csv, pdf, both)." });
         }
 
-        // Query inventory data
         let query = `
             SELECT inventory.id, inventory.name, 
                    CASE 
@@ -241,6 +244,11 @@ exports.exportInventory = async (req, res) => {
                        ELSE 'No Subcategory' 
                    END AS subcategory,
                    inventory.quantity, 
+                   inventory.low_stock_threshold,
+                   CASE 
+                       WHEN inventory.quantity <= inventory.low_stock_threshold THEN true 
+                       ELSE false 
+                   END AS is_low_stock,
                    COALESCE(locations.name, 'Unknown') AS location_name
             FROM inventory
             LEFT JOIN categories ON inventory.category_id = categories.id
@@ -248,30 +256,40 @@ exports.exportInventory = async (req, res) => {
             LEFT JOIN locations ON inventory.location_id = locations.id
         `;
 
-        const params = [];
+        let params = [];
+        let conditions = [];
 
-        // Filter by category_id
+        // Filter by category
         if (category_id) {
-            query += ` WHERE inventory.category_id = $1`;
             params.push(category_id);
+            conditions.push(`inventory.category_id = $${params.length}`);
         }
 
-        // Sort results
+        // Filter by low-stock only
+        if (low_stock_only) {
+            conditions.push(`inventory.quantity <= inventory.low_stock_threshold`);
+        }
+
+        // Apply WHERE conditions if needed
+        if (conditions.length > 0) {
+            query += ` WHERE ` + conditions.join(" AND ");
+        }
+
+        // Sorting
         if (sort_by) {
             query += ` ORDER BY ${sort_by} ${order === "desc" ? "DESC" : "ASC"}`;
         }
 
-        console.log("📤 Running SQL Query:\n", query); // Debugging SQL Query
+        console.log("📤 Running SQL Query:\n", query, params);
 
         const result = await pool.query(query, params);
-        console.log("✅ Query Result:", result.rows.length, "records found"); // Debugging Output
+        console.log("✅ Query Result:", result.rows.length, "records found");
 
-        // Check if records found
         if (result.rows.length === 0) {
             return res.status(404).json({ error: "No inventory records found." });
         }
 
-        // Generate and send email with attachments
+        // Generate CSV/PDF and send email
         let attachments = [];
         if (format === "csv" || format === "both") {
             const csvPath = await exportService.generateCSV(result.rows);
@@ -282,7 +300,6 @@ exports.exportInventory = async (req, res) => {
             attachments.push(pdfPath);
         }
 
-        // Send email with attachments
         await emailService.sendEmailWithAttachments(email, attachments);
 
         console.log("📧 Export Successful. Email sent to:", email);
@@ -291,27 +308,5 @@ exports.exportInventory = async (req, res) => {
     } catch (err) {
         console.error("❌ Error exporting inventory:", err);
         res.status(500).json({ error: err.message });
-    }
-};
-
-// Get User Email
-exports.getUserEmail = async (req, res) => {
-    try {
-        console.log("Fetching user email for ID:", req.user.id);
-
-        if (!req.user || !req.user.id) {
-            return res.status(401).json({ error: "Unauthorized: Missing user ID" });
-        }
-
-        const user = await db.query("SELECT email FROM users WHERE id = $1", [req.user.id]);
-
-        if (user.rows.length === 0) {
-            return res.status(404).json({ error: "User not found" });
-        }
-
-        res.json({ email: user.rows[0].email });
-    } catch (err) {
-        console.error("Error fetching user email:", err);
-        res.status(500).json({ error: "Database query failed" });
     }
 };

@@ -13,6 +13,7 @@ class _ExportScreenState extends State<ExportScreen> {
   String? _userEmail;
   int? _selectedCategory;
   bool _isExporting = false;
+  bool _lowStockOnly = false;
 
   @override
   void initState() {
@@ -42,6 +43,7 @@ class _ExportScreenState extends State<ExportScreen> {
         categoryId: _selectedCategory,
         sortBy: _sortBy,
         order: _order,
+        lowStockOnly: _lowStockOnly,
       );
 
       _showSnackbar(response["message"] ?? "Export successful!");
@@ -111,6 +113,16 @@ class _ExportScreenState extends State<ExportScreen> {
               ],
             ),
             SizedBox(height: 10),
+
+            CheckboxListTile(
+              title: Text("Low Stock Only"),
+              value: _lowStockOnly,
+              onChanged: (value) {
+                setState(() {
+                  _lowStockOnly = value!;
+                });
+              },
+            ),
 
             Text(
               "Email: ${_userEmail ?? "Loading..."}",

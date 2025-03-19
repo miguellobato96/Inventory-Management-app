@@ -38,6 +38,7 @@ class ExportService {
     int? categoryId,
     required String sortBy,
     required String order,
+    bool lowStockOnly = false,
   }) async {
     final String? token = await getToken();
     if (token == null) throw Exception("Unauthorized: No token found");
@@ -57,6 +58,7 @@ class ExportService {
         "category_id": categoryId,
         "sort_by": sortBy,
         "order": order,
+        "low_stock_only": lowStockOnly,
       }),
     );
 

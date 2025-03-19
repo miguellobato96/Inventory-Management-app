@@ -50,8 +50,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
   void _fetchInventory() async {
     try {
       List<dynamic> items = await _inventoryService.getInventoryItems();
+
       setState(() {
-        _items = items;
+        _items =
+            items.map((item) {
+              return {
+                ...item,
+                "is_low_stock":
+                    item["is_low_stock"] == true, // Ensure it's a boolean
+              };
+            }).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -308,6 +316,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
     // Item
     if (entryType == 'item') {
       return ListTile(
+        leading:
+            entry.containsKey("is_low_stock") && entry["is_low_stock"] == true
+                ? Icon(Icons.warning, color: Colors.red)
+                : null,
         title: Text(
           entryName,
           style: const TextStyle(fontWeight: FontWeight.normal),
@@ -376,6 +388,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               'name': item['name'],
               'category_name': _getCategoryHierarchy(item['category_id']),
               'quantity': item['quantity'],
+              'is_low_stock': item['is_low_stock'],
               'type': 'item',
             }),
           ),
@@ -393,7 +406,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
     final displayCategories = _filterInventoryBySearch();
-
     return Scaffold(
       appBar: AppBar(
         title: Expanded(
