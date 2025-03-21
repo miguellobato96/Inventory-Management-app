@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/inventory_service.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
+import 'dashboard_screen.dart';
 import 'export_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -438,9 +439,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
         ),
         actions: [
-          SizedBox(
-            width: 16, // Matches left-side spacing of return button
-          ),
           IconButton(
             icon: Icon(Icons.file_download), // Export icon
             tooltip: "Export Inventory",
@@ -448,6 +446,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => ExportScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.dashboard),
+            tooltip: "View Dashboard",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => DashboardScreen()),
               );
             },
           ),

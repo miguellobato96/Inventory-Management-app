@@ -310,3 +310,43 @@ exports.exportInventory = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
+// Fetch Dashboard Insights
+exports.getDashboardInsights = async (req, res) => {
+    try {
+        console.log("📊 Fetching Dashboard Insights...");
+
+        // Fetch Top 5 Most Frequently Low-Stock Items
+        const lowStockItems = await pool.query(`
+            SELECT i.name, COUNT(*) AS low_stock_count
+            FROM inventory_history ih
+            JOIN inventory i ON ih.item_id = i.id
+            WHERE i.quantity <= i.low_stock_threshold
+            GROUP BY i.name
+            ORDER BY low_stock_count DESC
+            LIMIT 5;
+        `);
+
+        // Fetch Top 5 Most Used Items (Highest Negative Changes)
+        const mostUsedItems = await pool.query(`
+            SELECT i.name, ABS(SUM(ih.quantity_change)) AS total_usage
+            FROM inventory_history ih
+            JOIN inventory i ON ih.item_id = i.id
+            WHERE ih.quantity_change < 0
+            GROUP BY i.name
+            ORDER BY total_usage DESC
+            LIMIT 5;
+        `);
+
+        res.status(200).json({
+            top_low_stock_items: lowStockItems.rows,
+            most_used_items: mostUsedItems.rows, // Updated key name
+        });
+
+        console.log("✅ Dashboard Insights Sent!");
+
+    } catch (error) {
+        console.error("❌ Error fetching dashboard insights:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};

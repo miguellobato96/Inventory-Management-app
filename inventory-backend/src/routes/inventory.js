@@ -12,6 +12,7 @@ router.get('/:id([0-9]+)', inventoryController.getItemById);
 router.post('/adjust-quantity', inventoryController.adjustItemQuantity);
 
 // Routes only accessible to Admins
+router.get('/dashboard', verifyToken, inventoryController.getDashboardInsights);
 router.post('/export', requireAdmin, inventoryController.exportInventory);
 router.get('/history', requireAdmin, inventoryController.getInventoryHistory);
 router.post('/', requireAdmin, inventoryController.createItem);
