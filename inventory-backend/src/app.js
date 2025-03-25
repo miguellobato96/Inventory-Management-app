@@ -22,7 +22,9 @@ const authRoutes = require('./routes/auth');
 const inventoryRoutes = require('./routes/inventory');
 const categoryRoutes = require('./routes/category');
 const locationRoutes = require('./routes/location');
+const adminUsersRoutes = require('./routes/adminUsers');
 
+app.use('/admin/users', adminUsersRoutes);
 app.use('/auth', authRoutes);
 app.use('/inventory', inventoryRoutes);
 app.use('/categories', categoryRoutes);

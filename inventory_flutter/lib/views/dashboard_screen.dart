@@ -67,8 +67,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Color color,
     double totalOccurrences,
   ) {
-    if (data.isEmpty || totalOccurrences == 0)
+    if (data.isEmpty || totalOccurrences == 0) {
       return const SizedBox(); // Prevent division by zero
+    }
 
     return Card(
       elevation: 4,

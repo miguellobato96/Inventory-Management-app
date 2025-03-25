@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/inventory_service.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
-import 'dashboard_screen.dart';
-import 'export_screen.dart';
+import 'admin_dashboard_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -252,11 +251,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     )['quantity'];
                 if (action == "remove" && currentQuantity - quantity < 0) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        "Not enough stock!",
-                      ),
-                    ),
+                    const SnackBar(content: Text("Not enough stock!")),
                   );
                   return; // ❌ Keep dialog open
                 }
@@ -299,8 +294,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       if (category['id'] == 0 || category['name'] == 'Unknown') break;
 
       hierarchy.insert(0, category['name']);
-      currentCategoryId =
-          category['parent_id'];
+      currentCategoryId = category['parent_id'];
     }
 
     return hierarchy.isNotEmpty ? hierarchy.join(' > ') : 'No Category';
@@ -439,29 +433,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: Icon(Icons.file_download), // Export icon
-            tooltip: "Export Inventory",
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ExportScreen()),
-              );
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.dashboard),
-            tooltip: "View Dashboard",
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => DashboardScreen()),
-              );
-            },
-          ),
-          SizedBox(
-            width: 16, // Maintain spacing on the right side
-          ),
+          // Admin Dashboard
+          if (_userRole == 'admin') ...[
+            IconButton(
+              icon: const Icon(Icons.dashboard),
+              tooltip: 'Painel de Administração',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminDashboardScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
+          const SizedBox(width: 16), // Espaçamento à direita
         ],
       ),
       body:
