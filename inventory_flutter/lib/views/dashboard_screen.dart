@@ -167,23 +167,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               : _errorMessage.isNotEmpty
               ? Center(child: Text(_errorMessage))
               : (_lowStockItems.isNotEmpty || _mostUsedItems.isNotEmpty)
-              ? Column(
-                children: [
-                  if (_lowStockItems.isNotEmpty)
-                    _buildBarChart(
-                      _lowStockItems,
-                      "Top Low Stock Items",
-                      Colors.red,
-                      _totalLowStock, // Pass total count for percentage
-                    ),
-                  if (_mostUsedItems.isNotEmpty)
-                    _buildBarChart(
-                      _mostUsedItems,
-                      "Most Used Items",
-                      Colors.blue,
-                      _totalUsage, // Pass total count for percentage
-                    ),
-                ],
+              ? SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    if (_lowStockItems.isNotEmpty)
+                      _buildBarChart(
+                        _lowStockItems,
+                        "Top Low Stock Items",
+                        Colors.red,
+                        _totalLowStock,
+                      ),
+                    if (_mostUsedItems.isNotEmpty)
+                      _buildBarChart(
+                        _mostUsedItems,
+                        "Most Used Items",
+                        Colors.blue,
+                        _totalUsage,
+                      ),
+                  ],
+                ),
               )
               : const Center(child: Text("No data available.")),
     );

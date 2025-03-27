@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../services/admin_user_service.dart';
-import '../services/api_service.dart';
 import 'user_form_screen.dart';
+import 'user_history_screen.dart';
 
 class AdminUsersScreen extends StatefulWidget {
-  const AdminUsersScreen({Key? key}) : super(key: key);
+  const AdminUsersScreen({super.key});
 
   @override
   State<AdminUsersScreen> createState() => _AdminUsersViewState();
@@ -27,6 +27,13 @@ class _AdminUsersViewState extends State<AdminUsersScreen> {
   void _fetchUsers() async {
     try {
       final users = await _userService.getAllUsers();
+
+      // Sort by username (case-insensitive)
+      users.sort(
+        (a, b) =>
+            a['username'].toLowerCase().compareTo(b['username'].toLowerCase()),
+      );
+
       setState(() {
         _users = users;
         _filteredUsers = users;
@@ -72,9 +79,18 @@ class _AdminUsersViewState extends State<AdminUsersScreen> {
     if (created == true) _fetchUsers();
   }
 
-  // Placeholder for user history
+  // Navigate to user history screen
   void _openUserHistory(dynamic user) {
-    // To be implemented
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => UserHistoryScreen(
+              userId: user['id'],
+              username: user['username'],
+            ),
+      ),
+    );
   }
 
   @override

@@ -66,85 +66,134 @@ class _ExportScreenState extends State<ExportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final maxContentWidth = screenWidth > 600 ? 500.0 : double.infinity;
+
     return Scaffold(
-      appBar: AppBar(title: Text("Export Inventory")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Export Format:",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            DropdownButton<String>(
-              value: _selectedFormat,
-              onChanged: (value) => setState(() => _selectedFormat = value!),
-              items: [
-                DropdownMenuItem(value: "csv", child: Text("CSV")),
-                DropdownMenuItem(value: "pdf", child: Text("PDF")),
-                DropdownMenuItem(value: "both", child: Text("Both")),
-              ],
-            ),
-            SizedBox(height: 10),
-
-            Text(
-              "Sort By:",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            DropdownButton<String>(
-              value: _sortBy,
-              onChanged: (value) => setState(() => _sortBy = value!),
-              items: [
-                DropdownMenuItem(value: "name", child: Text("Name")),
-                DropdownMenuItem(value: "quantity", child: Text("Quantity")),
-              ],
-            ),
-            SizedBox(height: 10),
-
-            Text(
-              "Order:",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            DropdownButton<String>(
-              value: _order,
-              onChanged: (value) => setState(() => _order = value!),
-              items: [
-                DropdownMenuItem(value: "asc", child: Text("Ascending")),
-                DropdownMenuItem(value: "desc", child: Text("Descending")),
-              ],
-            ),
-            SizedBox(height: 10),
-
-            CheckboxListTile(
-              title: Text("Low Stock Only"),
-              value: _lowStockOnly,
-              onChanged: (value) {
-                setState(() {
-                  _lowStockOnly = value!;
-                });
-              },
-            ),
-
-            Text(
-              "Email: ${_userEmail ?? "Loading..."}",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 20),
-
-            Spacer(), // Pushes the button to the bottom
-
-            if (_isExporting)
-              Center(child: CircularProgressIndicator())
-            else
-              SizedBox(
-                width: double.infinity, // Make button full-width
-                child: ElevatedButton(
-                  onPressed: _exportInventory,
-                  child: Text("Export"),
+      appBar: AppBar(title: const Text("Exportar Inventário")),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxContentWidth),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  "Formato de Exportação",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-              ),
-          ],
+                CheckboxListTile(
+                  title: const Text("PDF"),
+                  value: _selectedFormat == "pdf" || _selectedFormat == "both",
+                  onChanged: (bool? value) {
+                    setState(() {
+                      if (value == true && _selectedFormat == "csv") {
+                        _selectedFormat = "both";
+                      } else if (value == true) {
+                        _selectedFormat = "pdf";
+                      } else if (_selectedFormat == "both") {
+                        _selectedFormat = "csv";
+                      }
+                    });
+                  },
+                ),
+                CheckboxListTile(
+                  title: const Text("CSV"),
+                  value: _selectedFormat == "csv" || _selectedFormat == "both",
+                  onChanged: (bool? value) {
+                    setState(() {
+                      if (value == true && _selectedFormat == "pdf") {
+                        _selectedFormat = "both";
+                      } else if (value == true) {
+                        _selectedFormat = "csv";
+                      } else if (_selectedFormat == "both") {
+                        _selectedFormat = "pdf";
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                const Text(
+                  "Ordenação",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+
+                Row(
+                  children: [
+                    // Toggle: Ordenar por (Nome / Quantidade)
+                    Expanded(
+                      child: ToggleButtons(
+                        isSelected: [_sortBy == "name", _sortBy == "quantity"],
+                        onPressed: (index) {
+                          setState(() {
+                            _sortBy = index == 0 ? "name" : "quantity";
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        constraints: const BoxConstraints(
+                          minHeight: 36,
+                          minWidth: 100,
+                        ),
+                        children: const [Text("Nome"), Text("Quantidade")],
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+
+                    // Toggle: Ordem (↑ ↓)
+                    ToggleButtons(
+                      isSelected: [_order == "asc", _order == "desc"],
+                      onPressed: (index) {
+                        setState(() {
+                          _order = index == 0 ? "asc" : "desc";
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      constraints: const BoxConstraints(
+                        minHeight: 36,
+                        minWidth: 40,
+                      ),
+                      children: const [
+                        Icon(Icons.arrow_upward),
+                        Icon(Icons.arrow_downward),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                CheckboxListTile(
+                  title: const Text("Apenas com stock reduzido"),
+                  value: _lowStockOnly,
+                  onChanged:
+                      (value) => setState(() => _lowStockOnly = value ?? false),
+                ),
+
+                const SizedBox(height: 16),
+                Text(
+                  "Email: ${_userEmail ?? "A carregar..."}",
+                  style: const TextStyle(fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+
+                const SizedBox(height: 36),
+                _isExporting
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                      onPressed: _exportInventory,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: Colors.deepPurple,
+                        foregroundColor: Colors.white,
+                        textStyle: const TextStyle(fontSize: 16),
+                      ),
+                      child: const Text("Exportar"),
+                    ),
+              ],
+            ),
+          ),
         ),
       ),
     );

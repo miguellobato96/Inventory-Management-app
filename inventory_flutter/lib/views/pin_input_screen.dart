@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 class PinInputScreen extends StatefulWidget {
   final Function(String) onPinConfirmed;
 
-  const PinInputScreen({Key? key, required this.onPinConfirmed})
-    : super(key: key);
+  const PinInputScreen({super.key, required this.onPinConfirmed});
 
   @override
   State<PinInputScreen> createState() => _PinInputScreenState();

@@ -5,7 +5,7 @@ import 'pin_input_screen.dart';
 class UserFormScreen extends StatefulWidget {
   final Map<String, dynamic>? user;
 
-  const UserFormScreen({Key? key, this.user}) : super(key: key);
+  const UserFormScreen({super.key, this.user});
 
   @override
   State<UserFormScreen> createState() => _UserFormScreenState();
@@ -132,75 +132,121 @@ class _UserFormScreenState extends State<UserFormScreen> {
   @override
   Widget build(BuildContext context) {
     final pinDefined = _pin != null && _pin!.length == 4;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final maxContentWidth = screenWidth > 600 ? 500.0 : double.infinity;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditing ? 'Editar Utilizador' : 'Novo Utilizador'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _usernameCtrl,
-                decoration: const InputDecoration(labelText: 'Username'),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty
-                            ? 'Preenche o username'
-                            : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _emailCtrl,
-                decoration: const InputDecoration(labelText: 'Email'),
-                validator:
-                    (value) =>
-                        value == null || !value.contains('@')
-                            ? 'Email inválido'
-                            : null,
-              ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                title: const Text('Administrador'),
-                value: _isAdmin,
-                onChanged: (val) => setState(() => _isAdmin = val),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _openPinInput,
-                icon: const Icon(Icons.lock),
-                label: Text(
-                  pinDefined
-                      ? isEditing
-                          ? 'Resetar PIN'
-                          : 'PIN definido'
-                      : isEditing
-                      ? 'Resetar PIN'
-                      : 'Definir PIN',
-                ),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _isSaving ? null : _saveUser,
-                child: Text(
-                  isEditing ? 'Guardar Alterações' : 'Criar Utilizador',
-                ),
-              ),
-              if (isEditing)
-                Padding(
-                  padding: const EdgeInsets.only(top: 32),
-                  child: TextButton(
-                    onPressed: _deleteUser,
-                    child: const Text(
-                      'Eliminar Utilizador',
-                      style: TextStyle(color: Colors.red),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxContentWidth),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Username
+                  TextFormField(
+                    controller: _usernameCtrl,
+                    decoration: const InputDecoration(labelText: 'Username'),
+                    validator:
+                        (value) =>
+                            value == null || value.isEmpty
+                                ? 'Preenche o username'
+                                : null,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Email
+                  TextFormField(
+                    controller: _emailCtrl,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                    validator:
+                        (value) =>
+                            value == null || !value.contains('@')
+                                ? 'Email inválido'
+                                : null,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // PIN button + Admin toggle
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _openPinInput,
+                        icon: const Icon(Icons.lock),
+                        label: Text(
+                          pinDefined
+                              ? isEditing
+                                  ? 'Resetar PIN'
+                                  : 'PIN definido'
+                              : isEditing
+                              ? 'Resetar PIN'
+                              : 'Definir PIN',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          textStyle: const TextStyle(fontSize: 14),
+                          backgroundColor: Colors.deepPurple.shade100,
+                          foregroundColor: Colors.deepPurple,
+                        ),
+                      ),
+                      const Spacer(),
+                      const Text('Administrador'),
+                      const SizedBox(width: 12),
+                      Switch(
+                        value: _isAdmin,
+                        onChanged: (val) => setState(() => _isAdmin = val),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // Create or save button
+                  ElevatedButton(
+                    onPressed: _isSaving ? null : _saveUser,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    child: Text(
+                      isEditing ? 'Guardar Alterações' : 'Criar Utilizador',
                     ),
                   ),
-                ),
-            ],
+
+                  // Centered delete button
+                  if (isEditing)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: Center(
+                        child: TextButton(
+                          onPressed: _deleteUser,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('Eliminar Utilizador'),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

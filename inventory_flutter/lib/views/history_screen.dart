@@ -75,72 +75,95 @@ class _HistoryScreenState extends State<HistoryScreen> {
               : _errorMessage.isNotEmpty
               ? Center(child: Text(_errorMessage))
               : SingleChildScrollView(
-                scrollDirection: Axis.horizontal, // Enable horizontal scrolling
-                child: DataTable(
-                  sortColumnIndex: [
-                    'item_name',
-                    'username',
-                    'quantity_before',
-                    'quantity_change',
-                    'quantity_after',
-                    'changed_at',
-                  ].indexOf(_sortedColumn),
-                  sortAscending: _isAscending,
-                  columns: [
-                    DataColumn(
-                      label: const Text('Item'),
-                      onSort: (_, __) => _sortTable('item_name'),
-                    ),
-                    DataColumn(
-                      label: const Text('User'),
-                      onSort: (_, __) => _sortTable('username'),
-                    ),
-                    DataColumn(
-                      label: const Text('Before'),
-                      onSort: (_, __) => _sortTable('quantity_before'),
-                      numeric: true,
-                    ),
-                    DataColumn(
-                      label: const Text('Change'),
-                      onSort: (_, __) => _sortTable('quantity_change'),
-                      numeric: true,
-                    ),
-                    DataColumn(
-                      label: const Text('After'),
-                      onSort: (_, __) => _sortTable('quantity_after'),
-                      numeric: true,
-                    ),
-                    DataColumn(
-                      label: const Text('Date'),
-                      onSort: (_, __) => _sortTable('changed_at'),
-                    ),
-                  ],
-                  rows:
-                      _history.map((entry) {
-                        return DataRow(
-                          cells: [
-                            DataCell(Text(entry['item_name'] ?? 'Unknown')),
-                            DataCell(Text(entry['username'] ?? 'Unknown')),
-                            DataCell(Text(entry['quantity_before'].toString())),
-                            DataCell(
-                              Text(
-                                entry['quantity_change'].toString(),
-                                style: TextStyle(
-                                  color:
-                                      entry['quantity_change'] > 0
-                                          ? Colors.green
-                                          : Colors.red,
-                                  fontWeight: FontWeight.bold,
+                padding: const EdgeInsets.all(16),
+                child: Container(
+                  width: double.infinity,
+                  child: DataTable(
+                    sortColumnIndex: [
+                      'item_name',
+                      'username',
+                      'quantity_before',
+                      'quantity_change',
+                      'quantity_after',
+                      'changed_at',
+                    ].indexOf(_sortedColumn),
+                    sortAscending: _isAscending,
+                    columns: [
+                      DataColumn(
+                        label: const Text('Item'),
+                        onSort: (_, __) => _sortTable('item_name'),
+                      ),
+                      DataColumn(
+                        label: const Text('User'),
+                        onSort: (_, __) => _sortTable('username'),
+                      ),
+                      DataColumn(
+                        label: const Text('Before'),
+                        onSort: (_, __) => _sortTable('quantity_before'),
+                        numeric: true,
+                      ),
+                      DataColumn(
+                        label: const Text('Change'),
+                        onSort: (_, __) => _sortTable('quantity_change'),
+                        numeric: true,
+                      ),
+                      DataColumn(
+                        label: const Text('After'),
+                        onSort: (_, __) => _sortTable('quantity_after'),
+                        numeric: true,
+                      ),
+                      DataColumn(
+                        label: const Text('Date'),
+                        onSort: (_, __) => _sortTable('changed_at'),
+                      ),
+                    ],
+                    rows:
+                        _history.map((entry) {
+                          return DataRow(
+                            cells: [
+                              DataCell(
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(entry['item_name'] ?? 'Unknown'),
                                 ),
                               ),
-                            ),
-                            DataCell(Text(entry['quantity_after'].toString())),
-                            DataCell(
-                              Text(entry['changed_at']),
-                            ), // ✅ Reverting back to working format
-                          ],
-                        );
-                      }).toList(),
+                              DataCell(
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(entry['username'] ?? 'Unknown'),
+                                ),
+                              ),
+                              DataCell(
+                                Text(entry['quantity_before'].toString()),
+                              ),
+                              DataCell(
+                                Text(
+                                  entry['quantity_change'].toString(),
+                                  style: TextStyle(
+                                    color:
+                                        entry['quantity_change'] > 0
+                                            ? Colors.green
+                                            : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                Text(entry['quantity_after'].toString()),
+                              ),
+                              DataCell(
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(entry['changed_at']),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                  ),
                 ),
               ),
     );
