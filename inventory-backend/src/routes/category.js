@@ -15,4 +15,10 @@ router.get('/:id/subcategories', categoryController.getSubcategories);
 // Add a new category (admin only)
 router.post('/', requireAdmin, categoryController.createCategory);
 
+// Update a category (admin only)
+router.put('/:id', requireAdmin, categoryController.updateCategory);
+
+// Delete a category (admin only)
+router.delete('/:id', requireAdmin, categoryController.deleteCategory);
+
 module.exports = router;

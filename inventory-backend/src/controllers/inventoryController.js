@@ -1,43 +1,5 @@
 const pool = require('../config/db');
 
-// Create Item
-exports.createItem = async (req, res) => {
-    const io = req.app.get('socketio');
-    const { name, category_id, quantity, location_id } = req.body;
-
-    console.log("🔍 Received POST request:", req.body); // Log request data
-
-    try {
-        // Check if category_id exists
-        const categoryCheck = await pool.query('SELECT id FROM categories WHERE id = $1', [category_id]);
-        if (categoryCheck.rows.length === 0) {
-            console.error("❌ Invalid category_id:", category_id);
-            return res.status(400).json({ error: "Invalid category_id: Category does not exist" });
-        }
-
-        // Check if location_id exists
-        const locationCheck = await pool.query('SELECT id FROM locations WHERE id = $1', [location_id]);
-        if (locationCheck.rows.length === 0) {
-            console.error("❌ Invalid location_id:", location_id);
-            return res.status(400).json({ error: "Invalid location_id: Location does not exist" });
-        }
-
-        // Insert item
-        console.log("✅ Inserting item into inventory...");
-        const newItem = await pool.query(
-            'INSERT INTO inventory (name, category_id, quantity, location_id) VALUES ($1, $2, $3, $4) RETURNING *',
-            [name, category_id, quantity, location_id]
-        );
-
-        console.log("✅ Item inserted successfully:", newItem.rows[0]);
-        io.emit('inventory-updated');
-        res.status(201).json(newItem.rows[0]);
-    } catch (err) {
-        console.error('❌ Error inserting item:', err.stack);
-        res.status(500).json({ error: err.message });
-    }
-};
-
 // Get All Items
 exports.getItems = async (req, res) => {
     try {
@@ -90,47 +52,7 @@ exports.getItemById = async (req, res) => {
   }
 };
 
-// Update Item
-exports.updateItem = async (req, res) => {
-  const io = req.app.get('socketio');
-  const { id } = req.params;
-  const { name, category_id, quantity, location_id } = req.body;
-  
-  try {
-    const updated = await pool.query(
-      'UPDATE inventory SET name=$1, category_id=$2, quantity=$3, location_id=$4, updated_at=CURRENT_TIMESTAMP WHERE id=$5 RETURNING *',
-      [name, category_id, quantity, location_id, id]
-    );
-
-    const updatedItem = updated.rows[0];
-    io.emit('inventory-updated'); // Notify all clients
-
-    // Check if stock is low
-    if (updatedItem.quantity < 5) {
-      io.emit('low-stock-warning', updatedItem);
-    }
-
-    res.json(updatedItem);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Delete Item
-exports.deleteItem = async (req, res) => {
-  const io = req.app.get('socketio');
-  const { id } = req.params;
-  try {
-    await pool.query('DELETE FROM inventory WHERE id=$1', [id]);
-    
-    io.emit('inventory-updated'); // Emit clearly after deletion
-    res.status(204).json({ message: 'Item deleted' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Adjust item quantity (for users and admins) & Log History
+// Adjust item quantity & update history
 exports.adjustItemQuantity = async (req, res) => {
     const io = req.app.get('socketio');
     const { itemId, quantityChange } = req.body;

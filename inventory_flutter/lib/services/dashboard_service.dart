@@ -15,7 +15,7 @@ class DashboardService {
   Future<Map<String, dynamic>> fetchDashboardData() async {
     try {
       String? token =
-          await getToken(); // ✅ Use the standardized token retrieval method
+          await getToken();
 
       if (token == null || token.isEmpty) {
         print("No token found in storage");

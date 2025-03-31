@@ -23,7 +23,9 @@ const inventoryRoutes = require('./routes/inventory');
 const categoryRoutes = require('./routes/category');
 const locationRoutes = require('./routes/location');
 const adminUsersRoutes = require('./routes/adminUsers');
+const adminInventoryRoutes = require('./routes/adminInventory');
 
+app.use('/admin', adminInventoryRoutes);
 app.use('/admin/users', adminUsersRoutes);
 app.use('/auth', authRoutes);
 app.use('/inventory', inventoryRoutes);

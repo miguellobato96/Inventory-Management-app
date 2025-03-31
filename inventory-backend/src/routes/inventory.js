@@ -15,8 +15,4 @@ router.post('/adjust-quantity', inventoryController.adjustItemQuantity);
 router.get('/dashboard', verifyToken, inventoryController.getDashboardInsights);
 router.post('/export', requireAdmin, inventoryController.exportInventory);
 router.get('/history', requireAdmin, inventoryController.getInventoryHistory);
-router.post('/', requireAdmin, inventoryController.createItem);
-router.put('/:id', requireAdmin, inventoryController.updateItem);
-router.delete('/:id', requireAdmin, inventoryController.deleteItem);
-
 module.exports = router;

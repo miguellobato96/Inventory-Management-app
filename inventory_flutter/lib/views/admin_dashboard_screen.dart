@@ -3,6 +3,7 @@ import 'admin_users_screen.dart';
 import 'export_screen.dart';
 import 'history_screen.dart';
 import 'dashboard_screen.dart';
+import 'admin_inventory_screen.dart';
 
 /// This screen represents the Admin Dashboard with access to various admin features.
 class AdminDashboardScreen extends StatelessWidget {
@@ -15,6 +16,18 @@ class AdminDashboardScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
+          _buildAdminOption(
+            context,
+            icon: Icons.inventory,
+            label: 'Editar Inventário',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminInventoryScreen()),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
           _buildAdminOption(
             context,
             icon: Icons.people,

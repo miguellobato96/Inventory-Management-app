@@ -22,15 +22,16 @@ class InventoryService {
       List<dynamic> items = jsonDecode(response.body);
       items.sort(
         (a, b) => a['name'].compareTo(b['name']),
-      ); // ✅ Sort alphabetically
+      ); // Sort alphabetically
       return items;
     } else {
       throw Exception('Failed to load inventory');
     }
   }
 
+  // Fetch main categories
   Future<List<dynamic>> getMainCategories() async {
-    final token = await storage.read(key: 'jwt'); // Retrieve stored token
+    final token = await storage.read(key: 'jwt');
     print(
       "Using Token in Flutter: $token",
     ); // Debug: Check if Flutter is using a token
@@ -39,7 +40,7 @@ class InventoryService {
       Uri.parse('$baseUrl/categories/main'),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token', // Check if token is included
+        'Authorization': 'Bearer $token',
       },
     );
 
@@ -57,7 +58,7 @@ class InventoryService {
 
   // Fetch subcategories of a selected category
   Future<List<dynamic>> getSubcategories(int categoryId) async {
-    final token = await storage.read(key: 'jwt'); // Retrieve stored token
+    final token = await storage.read(key: 'jwt');
     print("Fetching subcategories for categoryId: $categoryId");
     print("Using Token for Subcategories: $token");
 
@@ -65,7 +66,7 @@ class InventoryService {
       Uri.parse('$baseUrl/categories/$categoryId/subcategories'),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token', // Ensure token is sent
+        'Authorization': 'Bearer $token',
       },
     );
 
@@ -91,97 +92,32 @@ class InventoryService {
     }
   }
 
-  // Add a new item
-  Future<bool> addItem(
-    String name,
-    int categoryId,
-    int quantity,
-    int locationId,
-  ) async {
-    final token = await storage.read(key: 'jwt');
-
-    final response = await http.post(
-      Uri.parse('$baseUrl/inventory'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        "name": name,
-        "category_id": categoryId,
-        "quantity": quantity,
-        "location_id": locationId,
-      }),
-    );
-
-    return response.statusCode == 201;
-  }
-
-  // Delete an item by ID
-  Future<bool> deleteItem(int id) async {
-    final token = await storage.read(key: 'jwt');
-
-    final response = await http.delete(
-      Uri.parse('$baseUrl/inventory/$id'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-
-    return response.statusCode == 204;
-  }
-
-  // Update an existing item
-  Future<bool> updateItem(
-    int id,
-    String name,
-    int categoryId,
-    int quantity,
-    int locationId,
-  ) async {
-    final token = await storage.read(key: 'jwt');
-
-    final response = await http.put(
-      Uri.parse('$baseUrl/inventory/$id'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        "name": name,
-        "category_id": categoryId,
-        "quantity": quantity,
-        "location_id": locationId,
-      }),
-    );
-
-    return response.statusCode == 200;
-  }
-
   // Adjust item quantity by adding or taking stock
   Future<Map<String, dynamic>?> adjustItemQuantity(
     int itemId,
     int quantityChange,
   ) async {
-    final token = await storage.read(key: 'jwt'); // Retrieve stored token
+    final token = await storage.read(key: 'jwt');
 
     final response = await http.post(
       Uri.parse('$baseUrl/inventory/adjust-quantity'),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token', // Ensure token is sent
+        'Authorization': 'Bearer $token',
       },
       body: jsonEncode({'itemId': itemId, 'quantityChange': quantityChange}),
     );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      return data['item']; // ✅ Return updated item including location
+      return data['item']; // Return updated item including location
     } else {
       print('Error adjusting item quantity: ${response.body}');
       return null;
     }
   }
 
-  // Fetch inventory history from backend
+  // Fetch inventory history
   Future<List<dynamic>> getInventoryHistory() async {
     final token = await storage.read(key: 'jwt');
 

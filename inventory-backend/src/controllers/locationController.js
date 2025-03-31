@@ -25,3 +25,46 @@ exports.createLocation = async (req, res) => {
         res.status(500).json({ error: 'Failed to add location' });
     }
 };
+
+// Update an existing location
+exports.updateLocation = async (req, res) => {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    try {
+        const result = await pool.query(
+            'UPDATE locations SET name = $1 WHERE id = $2 RETURNING *',
+            [name, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Location not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error updating location:', err);
+        res.status(500).json({ error: 'Failed to update location' });
+    }
+};
+
+// Delete a location
+exports.deleteLocation = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const result = await pool.query(
+            'DELETE FROM locations WHERE id = $1 RETURNING *',
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Location not found' });
+        }
+
+        res.json({ message: 'Location deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting location:', err);
+        res.status(500).json({ error: 'Failed to delete location' });
+    }
+};
