@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../services/inventory_service.dart';
 import '../services/socket_service.dart';
-import '../services/api_service.dart';
 import 'admin_dashboard_screen.dart';
-
+import '../views/change_user_dialog.dart';
+import '../models/user_model.dart';
+import '../views/pin_login_screen.dart';
+import '../services/auth_service.dart';
+import '../services/user_service.dart';
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
 
@@ -14,9 +17,11 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen> {
   final InventoryService _inventoryService = InventoryService();
   final SocketService _socketService = SocketService();
-  final ApiService _apiService = ApiService();
+  final AuthService _authService = AuthService();
+  final UserService _userService = UserService();
 
   final ScrollController _scrollController = ScrollController();
+  List<UserModel> _allUsers = [];
   List<dynamic> _items = [];
   List<dynamic> _categories = [];
   final Map<int, List<dynamic>> _subcategories = {};
@@ -26,6 +31,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   bool _isLoading = true;
   String _errorMessage = '';
   String _userRole = 'user';
+  UserModel? _currentUser;
 
   @override
   void initState() {
@@ -33,6 +39,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     _fetchInventory();
     _fetchCategories();
     _getUserRole();
+    _initUserData();
 
     _socketService.connect();
     _socketService.listenForInventoryUpdates(() {
@@ -40,8 +47,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
     });
   }
 
+  Future<void> _initUserData() async {
+    final email = await _userService.getUserEmail();
+    final users = await _userService.fetchAllUsers();
+
+    final matchedUser = users.firstWhere(
+      (u) => u.email.trim().toLowerCase() == email?.trim().toLowerCase(),
+      orElse: () => UserModel(id: 0, username: '?', email: '', role: ''),
+    );
+
+    setState(() {
+      _allUsers = users;
+      _currentUser = matchedUser;
+    });
+  }
+
   Future<void> _getUserRole() async {
-    final role = await _apiService.getUserRole();
+    final role = await _authService.getUserRole();
     setState(() {
       _userRole = role ?? 'user';
     });
@@ -279,7 +301,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       var category = _categories.firstWhere(
         (cat) => cat['id'] == currentCategoryId,
         orElse: () {
-          // ✅ Check in _subcategories if not found in _categories
+          // Check in _subcategories if not found in _categories
           for (var entry in _subcategories.entries) {
             for (var sub in entry.value) {
               if (sub['id'] == currentCategoryId) {
@@ -433,7 +455,67 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
         ),
         actions: [
-          // Admin Dashboard
+          // User Avatar (Change User)
+          IconButton(
+            tooltip: "Change User",
+            icon: CircleAvatar(
+              backgroundColor: Colors.deepPurple,
+              child: Text(
+                (_currentUser != null && _currentUser!.username.isNotEmpty)
+                    ? _currentUser!.username.characters.first.toUpperCase()
+                    : '?',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+            onPressed: () async {
+              final selectedUser = await showDialog<UserModel>(
+                context: context,
+                builder:
+                    (_) => ChangeUserDialog(
+                      users: _allUsers,
+                      onUserSelected: (user) => Navigator.pop(context, user),
+                    ),
+              );
+
+              if (selectedUser != null) {
+                final pin = await Navigator.push<String>(
+                  context,
+                  MaterialPageRoute(
+                    builder:
+                        (_) => PinLoginScreen(
+                          userEmail: selectedUser.email,
+                          onPinConfirmed: (pin) => Navigator.pop(context, pin),
+                        ),
+                  ),
+                );
+
+                if (pin != null && pin.length == 4) {
+                  final success = await _authService.login(
+                    selectedUser.email,
+                    pin,
+                  );
+
+                  if (success) {
+                    await _initUserData();
+                    _getUserRole();
+                    _fetchInventory();
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("User switched successfully!"),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Invalid PIN")),
+                    );
+                  }
+                }
+              }
+            },
+          ),
+
+          // Admin Panel
           if (_userRole == 'admin') ...[
             IconButton(
               icon: const Icon(Icons.dashboard),
@@ -448,7 +530,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               },
             ),
           ],
-          const SizedBox(width: 16), // Espaçamento à direita
+          const SizedBox(width: 16),
         ],
       ),
       body:

@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const bcrypt = require('bcrypt');
 
 // Get all users
 exports.getAllUsers = async (req, res) => {
@@ -34,16 +35,22 @@ exports.getUserHistory = async (req, res) => {
 
 // Create new user
 exports.createUser = async (req, res) => {
-  const { username, email, password, role } = req.body;
+  const { username, email, pin, role } = req.body;
 
-  // TODO: Add validation & password hashing if not done already
+  if (!pin || pin.length !== 4) {
+    return res.status(400).json({ message: 'PIN must be 4 digits' });
+  }
+
   try {
+    const hashedPin = await bcrypt.hash(pin, 10);
+
     const result = await pool.query(
-      `INSERT INTO users (username, email, password, role)
+      `INSERT INTO users (username, email, pin, role)
        VALUES ($1, $2, $3, $4)
        RETURNING id, username, email, role, created_at`,
-      [username, email, password, role || 'user']
+      [username, email, hashedPin, role || 'user']
     );
+
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating user:', error);
@@ -54,16 +61,28 @@ exports.createUser = async (req, res) => {
 // Update existing user
 exports.updateUser = async (req, res) => {
   const userId = req.params.id;
-  const { username, email, role } = req.body;
+  const { username, email, role, pin } = req.body;
 
   try {
-    const result = await pool.query(
-      `UPDATE users
-       SET username = $1, email = $2, role = $3
-       WHERE id = $4
-       RETURNING id, username, email, role, created_at`,
-      [username, email, role, userId]
-    );
+    let query;
+    let values;
+
+    if (pin && pin.length === 4) {
+      const hashedPin = await bcrypt.hash(pin, 10);
+      query = `UPDATE users
+               SET username = $1, email = $2, role = $3, pin = $4
+               WHERE id = $5
+               RETURNING id, username, email, role, created_at`;
+      values = [username, email, role, hashedPin, userId];
+    } else {
+      query = `UPDATE users
+               SET username = $1, email = $2, role = $3
+               WHERE id = $4
+               RETURNING id, username, email, role, created_at`;
+      values = [username, email, role, userId];
+    }
+
+    const result = await pool.query(query, values);
 
     if (result.rowCount === 0) {
       return res.status(404).json({ message: 'User not found' });
