@@ -6,11 +6,11 @@ class AuthService {
   final String baseUrl = 'http://localhost:3000/auth';
   final storage = const FlutterSecureStorage();
 
-  Future<bool> login(String email, String password) async {
+  Future<bool> login(String email, String pin) async {
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({"email": email, "password": password}),
+      body: jsonEncode({"email": email, "pin": pin}),
     );
 
     if (response.statusCode == 200) {
@@ -36,7 +36,7 @@ class AuthService {
 
   static Future<String?> getUserEmail() async {
     final storage = FlutterSecureStorage();
-    return await storage.read(key: "user_email"); // Read stored email
+    return await storage.read(key: "user_email");
   }
 
   Future<String?> getUserRole() async {

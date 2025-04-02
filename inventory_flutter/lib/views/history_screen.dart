@@ -76,7 +76,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ? Center(child: Text(_errorMessage))
               : SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
-                child: Container(
+                child: SizedBox(
                   width: double.infinity,
                   child: DataTable(
                     sortColumnIndex: [

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
+import 'package:flutter/services.dart';
+import 'package:inventory_flutter/services/auth_service.dart';
+import 'pin_login_screen.dart';
 import 'inventory_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -11,16 +13,44 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _apiService = ApiService();
+  final _authService = AuthService();
   bool isLoading = false;
 
+  void _handleKey(RawKeyEvent event) {
+    if (event is RawKeyDownEvent) {
+      final key = event.logicalKey.keyLabel;
+      if ((key == 'Enter' || key == 'NumpadEnter') && !isLoading) {
+        login();
+      }
+    }
+  }
+
   void login() async {
+    print("Opening PIN screen...");
+
+    final enteredPin = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => PinLoginScreen(
+              userEmail: _emailController.text.trim(),
+              onPinConfirmed: (pin) {
+                print("PIN entered: $pin");
+                Navigator.pop(context, pin);
+              },
+            ),
+      ),
+    );
+
+    print("Returned from PIN screen with: $enteredPin");
+
+    if (enteredPin == null || enteredPin.length != 4) return;
+
     setState(() => isLoading = true);
 
-    final success = await _apiService.login(
+    final success = await _authService.login(
       _emailController.text.trim(),
-      _passwordController.text.trim(),
+      enteredPin,
     );
 
     setState(() => isLoading = false);
@@ -29,11 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Login Successful!')));
-
-      await Future.delayed(
-        const Duration(seconds: 1),
-      ); // Wait briefly to show snackbar
-
+      await Future.delayed(const Duration(seconds: 1));
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const InventoryScreen()),
@@ -43,55 +69,47 @@ class _LoginScreenState extends State<LoginScreen> {
         const SnackBar(content: Text('Login Failed. Check credentials.')),
       );
     }
-
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Center(
-        child: SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 400,
-            ), // Set max width here
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TextField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
+    return RawKeyboardListener(
+      autofocus: true,
+      focusNode: FocusNode(),
+      onKey: _handleKey,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Login')),
+        body: Center(
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: 400,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: isLoading ? null : login,
+                        child: isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text('Login'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: isLoading ? null : login,
-                      child:
-                          isLoading
-                              ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
-                              : const Text('Login'),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
