@@ -4,6 +4,7 @@ import 'export_screen.dart';
 import 'history_screen.dart';
 import 'dashboard_screen.dart';
 import 'admin_inventory_screen.dart';
+import 'admin_damaged_items_screen.dart';
 
 /// This screen represents the Admin Dashboard with access to various admin features.
 class AdminDashboardScreen extends StatelessWidget {
@@ -72,6 +73,18 @@ class AdminDashboardScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const DashboardScreen()),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildAdminOption(
+            context,
+            icon: Icons.report_problem,
+            label: 'Itens Danificados',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminDamagedItemsScreen()),
               );
             },
           ),

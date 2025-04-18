@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/admin_user_service.dart';
+import 'unit_lift_details_screen.dart';
 
 class UserHistoryScreen extends StatefulWidget {
   final int userId;
@@ -48,15 +49,32 @@ class _UserHistoryScreenState extends State<UserHistoryScreen> {
     final color = isAddition ? Colors.green : Colors.red;
     final sign = isAddition ? '+' : '';
 
-    return ListTile(
-      title: Text(entry['item_name']),
-      subtitle: Text(
-        '${entry['quantity_before']} → ${entry['quantity_after']} ($sign${entry['quantity_change']})',
-        style: TextStyle(color: color),
-      ),
-      trailing: Text(
-        entry['changed_at'].toString().split('T').first,
-        style: const TextStyle(fontSize: 12),
+    return GestureDetector(
+      onTap: () {
+        if (entry['lift_id'] != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => UnitLiftDetailsScreen(
+                liftId: entry['lift_id'],
+                unitId: entry['unit_id'],
+                userId: widget.userId,
+                liftedItems: entry['lifted_items'] ?? [],
+              ),
+            ),
+          );
+        }
+      },
+      child: ListTile(
+        title: Text(entry['item_name']),
+        subtitle: Text(
+          '${entry['quantity_before']} → ${entry['quantity_after']} ($sign${entry['quantity_change']})',
+          style: TextStyle(color: color),
+        ),
+        trailing: Text(
+          entry['changed_at'].toString().split('T').first,
+          style: const TextStyle(fontSize: 12),
+        ),
       ),
     );
   }

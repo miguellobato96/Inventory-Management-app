@@ -58,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (success) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Login Successful!')));
+      ).showSnackBar(const SnackBar(content: Text('Login bem-sucedido!')));
       await Future.delayed(const Duration(seconds: 1));
       Navigator.pushReplacement(
         context,
@@ -66,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login Failed. Check credentials.')),
+        const SnackBar(content: Text('Login falhou!')),
       );
     }
   }
@@ -78,7 +78,6 @@ class _LoginScreenState extends State<LoginScreen> {
       focusNode: FocusNode(),
       onKey: _handleKey,
       child: Scaffold(
-        appBar: AppBar(title: const Text('Login')),
         body: Center(
           child: SingleChildScrollView(
             child: ConstrainedBox(
@@ -90,6 +89,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    const Text(
+                      'Inventory App',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Email input field
                     TextField(
                       controller: _emailController,
                       decoration: const InputDecoration(

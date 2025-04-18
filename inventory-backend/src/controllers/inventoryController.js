@@ -106,7 +106,7 @@ exports.adjustItemQuantity = async (req, res) => {
             message: `Quantity updated successfully. New quantity: ${newQuantity}`,
             item: {
                 ...updatedItem.rows[0],
-                location_name: item.location_name // ✅ Include location in response
+                location_name: item.location_name // Include location in response
             }
         });
 
@@ -271,4 +271,229 @@ exports.getDashboardInsights = async (req, res) => {
         console.error("❌ Error fetching dashboard insights:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
+};
+
+// Create a new lift (single record with multiple items)
+exports.createLift = async (req, res) => {
+  const userId = req.user.id;
+  const { unitId, items } = req.body;
+
+  if (!unitId || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ message: "Unit ID and items are required" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Create a new lift entry
+    const liftResult = await client.query(
+      'INSERT INTO unit_lifts (user_id, unit_id, status) VALUES ($1, $2, $3) RETURNING id',
+      [userId, unitId, 'active']
+    );
+    const liftId = liftResult.rows[0].id;
+
+    for (const item of items) {
+      await client.query(
+        'INSERT INTO unit_item_lifts (lift_id, item_id, quantity, status) VALUES ($1, $2, $3, $4)',
+        [liftId, item.item_id, item.quantity, 'active']
+      );
+
+      await client.query(
+        'UPDATE inventory SET quantity = quantity - $1 WHERE id = $2 AND quantity >= $1',
+        [item.quantity, item.item_id]
+      );
+    }
+
+    await client.query('COMMIT');
+    return res.status(200).json({ message: "Lift created successfully", liftId });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error("Create lift error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  } finally {
+    client.release();
+  }
+};
+
+// Clear lifted items for a specific unit
+exports.clearLiftForUnit = async (req, res) => {
+  const userId = req.user.id;
+  const unitId = req.params.unitId;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await client.query(
+      `SELECT id FROM unit_lifts WHERE user_id = $1 AND unit_id = $2 AND status = 'active'`,
+      [userId, unitId]
+    );
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: "No active lift found to clear." });
+    }
+
+    const liftId = result.rows[0].id;
+
+    await client.query(`DELETE FROM unit_item_lifts WHERE lift_id = $1`, [liftId]);
+    await client.query(`DELETE FROM unit_lifts WHERE id = $1`, [liftId]);
+
+    await client.query('COMMIT');
+    return res.status(200).json({ message: "Lift cleared" });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error("Clear lift error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  } finally {
+    client.release();
+  }
+};
+
+// Get lifted items for a specific unit
+exports.getLiftsByUnit = async (req, res) => {
+  const userId = req.user.id;
+  const unitId = req.params.unitId;
+
+  try {
+    const result = await pool.query(
+      `SELECT ul.id AS lift_id, ul.created_at, COUNT(uil.id) AS total_items
+       FROM unit_lifts ul
+       LEFT JOIN unit_item_lifts uil ON ul.id = uil.lift_id
+       WHERE ul.user_id = $1 AND ul.unit_id = $2
+       GROUP BY ul.id
+       ORDER BY ul.created_at DESC`,
+      [userId, unitId]
+    );
+
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error("Get lifts error:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Return lifted items (mark as returned, separate damaged)
+exports.returnLiftedItems = async (req, res) => {
+  const liftId = parseInt(req.params.liftId);
+  const { damagedItems } = req.body;
+  const userId = req.user.id;
+
+  if (!liftId || !Array.isArray(damagedItems)) {
+    return res.status(400).json({ message: "Lift ID and damaged items are required" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const liftItems = await client.query(
+      `SELECT uil.item_id, uil.quantity, ul.unit_id
+       FROM unit_item_lifts uil
+       JOIN unit_lifts ul ON uil.lift_id = ul.id
+       WHERE uil.lift_id = $1 AND ul.user_id = $2 AND uil.status = 'active'`,
+      [liftId, userId]
+    );
+
+    if (liftItems.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: "Lift not found or unauthorized" });
+    }
+
+    const lift = liftItems.rows[0];
+    const damagedMap = new Map();
+    for (const item of damagedItems) {
+      damagedMap.set(item.item_id, item.quantity);
+    }
+
+    for (const liftItem of liftItems.rows) {
+      const itemId = liftItem.item_id;
+      const liftedQty = liftItem.quantity;
+      const damagedQty = damagedMap.get(itemId) || 0;
+      const returnQty = liftedQty - damagedQty;
+
+      if (damagedQty > 0) {
+        await client.query(
+          `INSERT INTO damaged_items (user_id, unit_id, item_id, quantity) 
+           VALUES ($1, $2, $3, $4)`,
+          [userId, lift.unit_id, itemId, damagedQty]
+        );
+      }
+
+      if (returnQty > 0) {
+        await client.query(
+          `UPDATE inventory SET quantity = quantity + $1 WHERE id = $2`,
+          [returnQty, itemId]
+        );
+      }
+    }
+
+    await client.query(
+      `UPDATE unit_lifts 
+       SET status = 'returned', returned_at = CURRENT_TIMESTAMP 
+       WHERE id = $1 AND user_id = $2 AND status = 'active'`,
+      [liftId, userId]
+    );
+
+    await client.query(
+      `UPDATE unit_item_lifts
+       SET status = 'returned'
+       WHERE lift_id = $1`,
+      [liftId]
+    );
+
+    await client.query('COMMIT');
+    return res.status(200).json({ message: "Lift returned and damaged items recorded." });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error("Return lift error:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    client.release();
+  }
+};
+
+exports.getLiftItemsByLiftId = async (req, res) => {
+  const liftId = req.params.liftId;
+
+  try {
+    const result = await pool.query(
+      `SELECT l.id, l.item_id, i.name AS item_name, l.quantity
+       FROM unit_item_lifts l
+       JOIN inventory i ON l.item_id = i.id
+       WHERE l.lift_id = $1`,
+      [liftId]
+    );
+
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error("❌ Error fetching lift items:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.getAllDamagedItems = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(`
+      SELECT d.id, d.quantity, d.created_at,
+             i.name AS item_name,
+             u.name AS unit_name,
+             us.username AS user_name
+      FROM damaged_items d
+      JOIN inventory i ON d.item_id = i.id
+      JOIN units u ON d.unit_id = u.id
+      JOIN users us ON d.user_id = us.id
+      ORDER BY d.created_at DESC
+    `);
+
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error("Erro ao buscar itens danificados:", err);
+    res.status(500).json({ message: "Erro ao buscar itens danificados" });
+  } finally {
+    client.release();
+  }
 };
