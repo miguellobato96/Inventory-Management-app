@@ -10,7 +10,6 @@ import '../services/user_service.dart';
 import '../views/unit_selection_screen.dart';
 import '../views/unit_manager_screen.dart';
 import '../widgets/floating_cart.dart';
-import '../models/unit_model.dart';
 import '../models/item_model.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -38,9 +37,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
   String _errorMessage = '';
   String _userRole = 'user';
   UserModel? _currentUser;
-  UnitModel? _selectedUnit;
 
   final Map<int, CartItem> _cartItems = {};
+
+  int _activeLiftsCount = 0;
 
   @override
   void initState() {
@@ -48,7 +48,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     _fetchInventory();
     _fetchCategories();
     _getUserRole();
-    _initUserData();
+    _initUserData().then((_) => _fetchCurrentUnitLifts());
+
 
     _socketService.connect();
     _socketService.listenForInventoryUpdates(() {
@@ -67,6 +68,7 @@ void _selectUnit() async {
   );
 
   if (wasLiftConfirmed == true) {
+    await _fetchCurrentUnitLifts(); // Fetch active lifts again
     _clearCart();       // Clear cart
     _fetchInventory();  // Refresh inventory data
   }
@@ -106,6 +108,28 @@ void _selectUnit() async {
         _cartItems.remove(itemId);
       }
     });
+  }
+
+  Future<void> _fetchCurrentUnitLifts() async {
+    if (_currentUser == null) return;
+
+    try {
+      final units = await _userService.getUserUnits();
+      int totalActive = 0;
+
+      for (final unit in units) {
+        final history = await _userService.getUnitLiftHistory(unit.id);
+        final activeCount =
+            history.where((lift) => lift['status'] == 'active').length;
+        totalActive += activeCount;
+      }
+
+      setState(() {
+        _activeLiftsCount = totalActive;
+      });
+    } catch (e) {
+      print("Error fetching active lifts: $e");
+    }
   }
 
   // Initialize user data
@@ -485,26 +509,49 @@ void _selectUnit() async {
         ),
         actions: [
           // UC Manager
-          IconButton(
-            icon: const Icon(Icons.school),
-            tooltip: 'Unidades Curriculares',
-            onPressed: () async {
-              if (_currentUser != null) {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder:
-                        (context) =>
-                            UnitManagerScreen(currentUser: _currentUser!),
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.school),
+                tooltip: 'Unidades Curriculares',
+                onPressed: () async {
+                  if (_currentUser != null) {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (_) =>
+                                UnitManagerScreen(currentUser: _currentUser!),
+                      ),
+                    );
+                    _fetchInventory();
+                    _fetchCurrentUnitLifts(); // Recarrega contagem depois de possíveis alterações
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Utilizador não carregado!"),
+                      ),
+                    );
+                  }
+                },
+              ),
+              if (_activeLiftsCount > 0)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$_activeLiftsCount',
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
                   ),
-                );
-                _fetchInventory();
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Utilizador não carregado!")),
-                );
-              }
-            },
+                ),
+            ],
           ),
           const SizedBox(width: 8),
 

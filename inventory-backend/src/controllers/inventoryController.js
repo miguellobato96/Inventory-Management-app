@@ -118,27 +118,28 @@ exports.adjustItemQuantity = async (req, res) => {
 
 // Fetch inventory change history
 exports.getInventoryHistory = async (req, res) => {
-    try {
-        const history = await pool.query(`
-            SELECT ih.id, 
-                   ih.item_id, 
-                   i.name AS item_name, 
-                   u.username,
-                   ih.quantity_before, 
-                   ih.quantity_change, 
-                   ih.quantity_after, 
-                   TO_CHAR(ih.changed_at, 'DD/MM/YYYY HH24:MI') AS changed_at
-            FROM inventory_history ih
-            JOIN inventory i ON ih.item_id = i.id
-            JOIN users u ON ih.user_id = u.id
-            ORDER BY ih.changed_at DESC;
-        `);
+  try {
+    const history = await pool.query(`
+      SELECT ul.id AS lift_id,
+             ul.created_at,
+             ul.returned_at,
+             ul.status,
+             u.username,
+             un.name AS unit_name,
+             COUNT(uil.id) AS total_items
+      FROM unit_lifts ul
+      JOIN users u ON ul.user_id = u.id
+      JOIN units un ON ul.unit_id = un.id
+      LEFT JOIN unit_item_lifts uil ON ul.id = uil.lift_id
+      GROUP BY ul.id, u.username, un.name
+      ORDER BY ul.created_at DESC;
+    `);
 
-        res.status(200).json(history.rows);
-    } catch (error) {
-        console.error('❌ Error fetching inventory history:', error);
-        res.status(500).json({ error: 'Server error fetching history' });
-    }
+    res.status(200).json(history.rows);
+  } catch (error) {
+    console.error('❌ Error fetching lift history:', error);
+    res.status(500).json({ error: 'Server error fetching history' });
+  }
 };
 
 const exportService = require("../services/exportService");

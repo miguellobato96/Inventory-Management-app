@@ -20,6 +20,7 @@ class _UnitManagerScreenState extends State<UnitManagerScreen> {
   List<UnitModel> _filteredUnits = [];
   String _searchQuery = '';
   bool _isLoading = true;
+  Map<int, int> _activeLiftsByUnit = {};
 
   @override
   void initState() {
@@ -36,9 +37,26 @@ class _UnitManagerScreenState extends State<UnitManagerScreen> {
         _filteredUnits = units;
         _isLoading = false;
       });
+      await _fetchActiveLiftCounts();
     } catch (e) {
       print("Error fetching units: $e");
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchActiveLiftCounts() async {
+    try {
+      final counts = <int, int>{};
+      for (final unit in _units) {
+        final history = await _userService.getUnitLiftHistory(unit.id);
+        final activeCount = history.where((lift) => lift['status'] == 'active').length;
+        counts[unit.id] = activeCount;
+      }
+      setState(() {
+        _activeLiftsByUnit = counts;
+      });
+    } catch (e) {
+      print("Error fetching lift counts: $e");
     }
   }
 
@@ -107,8 +125,8 @@ class _UnitManagerScreenState extends State<UnitManagerScreen> {
     if (updated == true) _fetchUserUnits();
   }
 
-  void _openUnitHistory(UnitModel unit) {
-    Navigator.push(
+  Future<void> _openUnitHistory(UnitModel unit) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => UnitHistoryScreen(
@@ -118,6 +136,7 @@ class _UnitManagerScreenState extends State<UnitManagerScreen> {
         ),
       ),
     );
+    await _fetchUserUnits(); // Ensure lift counters update after returning
   }
 
   @override
@@ -164,10 +183,30 @@ class _UnitManagerScreenState extends State<UnitManagerScreen> {
                         child: ListTile(
                           title: Text(unit.name),
                           onTap: () => _editUnit(unit),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.history),
-                            tooltip: 'Ver levantamentos',
-                            onPressed: () => _openUnitHistory(unit),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_activeLiftsByUnit[unit.id] != null && _activeLiftsByUnit[unit.id]! > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: CircleAvatar(
+                                    backgroundColor: Colors.red,
+                                    radius: 12,
+                                    child: Text(
+                                      '${_activeLiftsByUnit[unit.id]}',
+                                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                                    ),
+                                  ),
+                                ),
+                              IconButton(
+                                icon: const Icon(Icons.history),
+                                tooltip: 'Ver levantamentos',
+                                onPressed: () async {
+                                  await _openUnitHistory(unit);
+                                  await _fetchUserUnits(); // Refresh after returning from history
+                                },
+                              ),
+                            ],
                           ),
                         ),
                       );
