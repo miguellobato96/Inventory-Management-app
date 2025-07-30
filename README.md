@@ -34,7 +34,7 @@ Admins have extended access:
 
 ```bash
 git clone https://github.com/miguellobato96/Inventory-Management-app.git
-cd inventory-backend
+cd backend
 npm install
 ```
 
@@ -68,7 +68,7 @@ flutter config --enable-web
 Then:
 
 ```bash
-cd ../inventory_flutter
+cd ../frontend
 flutter build web
 flutter serve
 ```
